@@ -2,19 +2,10 @@ package dagRun
 
 import (
 	"fmt"
-	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
-
-type IntNode struct {
-	Data int64
-}
-
-func (n *IntNode) String() string {
-	return strconv.FormatInt(n.Data, 10)
-}
 
 type StringNode struct {
 	Data string
