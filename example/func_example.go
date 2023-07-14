@@ -22,6 +22,7 @@ import (
 
 func main() {
 	// runCtx contains "runParam" and collect all "outputs"
+	// runCtx 提供运行参数，收集所有输出
 	var runCtx = &RunCtx{
 		InputParam:  "InputParam",
 		TaskAOutput: "",
