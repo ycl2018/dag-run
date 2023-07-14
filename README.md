@@ -51,7 +51,7 @@ func main() {
 		runCtx.TaskBOutput = "TaskCOutput"
 		return nil
 	})
-	scd.SubmitFunc("TaskD", []string{"TaskA", "TaskB"}, func(ctx context.Context, runCtx *RunCtx) error {
+	scd.SubmitFunc("TaskD", []string{"TaskB", "TaskC"}, func(ctx context.Context, runCtx *RunCtx) error {
 		time.Sleep(time.Millisecond * 100)
 		runCtx.TaskBOutput = "TaskDOutput"
 		return nil
