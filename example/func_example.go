@@ -43,12 +43,12 @@ func main() {
 	})
 	scd.SubmitFunc("TaskC", []string{"TaskA"}, func(ctx context.Context, runCtx *RunCtx) error {
 		time.Sleep(time.Millisecond * 100)
-		runCtx.TaskBOutput = "TaskCOutput"
+		runCtx.TaskCOutput = "TaskCOutput"
 		return nil
 	})
 	scd.SubmitFunc("TaskD", []string{"TaskB", "TaskC"}, func(ctx context.Context, runCtx *RunCtx) error {
 		time.Sleep(time.Millisecond * 100)
-		runCtx.TaskBOutput = "TaskDOutput"
+		runCtx.TaskDOutput = "TaskDOutput"
 		return nil
 	})
 	fromTime := time.Now()
