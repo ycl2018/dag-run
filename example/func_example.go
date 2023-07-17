@@ -35,7 +35,7 @@ func main() {
 		TaskDOutput: "",
 	}
 	fromTime := time.Now()
-	err := dagRun.
+	scd := dagRun.
 		NewFuncScheduler().
 		Submit("TaskA", nil, func() error {
 			time.Sleep(time.Millisecond * 100)
@@ -58,7 +58,8 @@ func main() {
 			time.Sleep(time.Millisecond * 100)
 			runCtx.TaskDOutput = "TaskDOutput"
 			return nil
-		}).
+		})
+	err := scd.
 		Run()
 	if err != nil {
 		log.Panicf("run task err:%v", err)

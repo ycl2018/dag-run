@@ -128,8 +128,3 @@ func (d *Scheduler[T]) CancelWithErr(err error) {
 	}
 	d.lock.Unlock()
 }
-
-// TODO: 打印出图结构
-func (d *Scheduler[T]) PrintDag() string {
-	return ""
-}

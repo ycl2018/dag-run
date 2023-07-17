@@ -2,6 +2,7 @@ package dagRun
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 )
 
@@ -35,17 +36,19 @@ func (g *Graph) AddEdge(from Node, to Node) {
 	g.Edges[from] = append(g.Edges[from], to)
 }
 
-func (g *Graph) String() {
+func (g *Graph) String() string {
 	g.mutex.Lock()
 	defer g.mutex.Unlock()
+	var sb strings.Builder
 	for i := 0; i < len(g.Nodes); i++ {
-		fmt.Printf("[%v]-> [", g.Nodes[i])
+		sb.WriteString(fmt.Sprintf("[%v]-> [", g.Nodes[i]))
 		nearNodes := g.Edges[g.Nodes[i]]
 		for j := 0; j < len(nearNodes); j++ {
-			fmt.Printf("%v,", nearNodes[j])
+			sb.WriteString(fmt.Sprintf("%s,", nearNodes[j]))
 		}
-		fmt.Print("]\n")
+		sb.WriteString(fmt.Sprintf("]\n"))
 	}
+	return sb.String()
 }
 
 type Walker func(node Node) error
