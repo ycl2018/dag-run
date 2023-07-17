@@ -67,6 +67,8 @@ func main() {
 	log.Printf("get runCtx:%+v\n", runCtx)
 	log.Printf("cost time:%s\n", time.Since(fromTime))
 	// example output
-	// 2023/07/14 17:13:55 get runCtx:&{InputParam:InputParam TaskAOutput:TaskAOutput TaskBOutput:TaskBOutput TaskCOutput:TaskCOutput TaskDOutput:TaskDOutput}
-	// 2023/07/14 17:13:55 cost time:301.555504ms
+	//2023/07/17 11:42:24 TaskAOutPut:TaskAOutput
+	//2023/07/17 11:42:24 get runCtx:&{InputParam:InputParam TaskAOutput:TaskAOutput TaskBOutput:TaskBOutput TaskCOutput:TaskCOutput TaskDOutput:TaskDOutput TaskEOutput:}
+	//2023/07/17 11:42:24 cost time:302.270165ms
+
 }

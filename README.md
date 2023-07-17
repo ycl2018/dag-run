@@ -13,6 +13,15 @@
 <p>支持fail fast，运行中如果有任务返回错误，则取消其余未运行任务</p>
 
 ```go
+
+package main
+
+import (
+	dagRun "github.com/ycl2018/dag-run"
+	"log"
+	"time"
+)
+
 // this example shows that we have 4 function tasks(eg:TaskA、B、C、D) to run, which dependency relation like
 // 		TaskA -- TaskB----\
 //   		└ ---- TaskC--- TaskD
@@ -28,6 +37,13 @@
 
 func main() {
 	// runCtx contains "runParam" and collect all "outputs"
+	// NOTE:
+	//  dagScheduler does not provide concurrency security guarantees for runCtx,
+	//  and situations that require concurrency security (such as concurrently writing maps) need to be maintained by the user
+
+	// runCtx 提供运行参数，收集所有输出
+	// NOTE: dagScheduler 不提供对runCtx的并发安全保证，需要并发安全的情况（如并发写map）需要使用方自己维护
+	
 	var runCtx = &RunCtx{
 		InputParam:  "InputParam",
 		TaskAOutput: "",
@@ -35,29 +51,32 @@ func main() {
 		TaskCOutput: "",
 		TaskDOutput: "",
 	}
-	scd := dagRun.NewScheduler[*RunCtx]()
-	scd.SubmitFunc("TaskA", nil, func(ctx context.Context, runCtx *RunCtx) error {
-		time.Sleep(time.Millisecond * 100)
-		runCtx.TaskAOutput = "TaskAOutput"
-		return nil
-	})
-	scd.SubmitFunc("TaskB", []string{"TaskA"}, func(ctx context.Context, runCtx *RunCtx) error {
-		time.Sleep(time.Millisecond * 100)
-		runCtx.TaskBOutput = "TaskBOutput"
-		return nil
-	})
-	scd.SubmitFunc("TaskC", []string{"TaskA"}, func(ctx context.Context, runCtx *RunCtx) error {
-		time.Sleep(time.Millisecond * 100)
-		runCtx.TaskCOutput = "TaskCOutput"
-		return nil
-	})
-	scd.SubmitFunc("TaskD", []string{"TaskB", "TaskC"}, func(ctx context.Context, runCtx *RunCtx) error {
-		time.Sleep(time.Millisecond * 100)
-		runCtx.TaskDOutput = "TaskDOutput"
-		return nil
-	})
 	fromTime := time.Now()
-	err := scd.Run(context.Background(), runCtx)
+	err := dagRun.
+		NewFuncScheduler().
+		Submit("TaskA", nil, func() error {
+			time.Sleep(time.Millisecond * 100)
+			runCtx.TaskAOutput = "TaskAOutput"
+			return nil
+		}).
+		Submit("TaskB", []string{"TaskA"}, func() error {
+			time.Sleep(time.Millisecond * 100)
+			// 可以安全使用上游依赖的输出
+			log.Printf("TaskAOutPut:%s", runCtx.TaskAOutput)
+			runCtx.TaskBOutput = "TaskBOutput"
+			return nil
+		}).
+		Submit("TaskC", []string{"TaskA"}, func() error {
+			time.Sleep(time.Millisecond * 100)
+			runCtx.TaskCOutput = "TaskCOutput"
+			return nil
+		}).
+		Submit("TaskD", []string{"TaskB", "TaskC"}, func() error {
+			time.Sleep(time.Millisecond * 100)
+			runCtx.TaskDOutput = "TaskDOutput"
+			return nil
+		}).
+		Run()
 	if err != nil {
 		log.Panicf("run task err:%v", err)
 		return
@@ -65,8 +84,10 @@ func main() {
 	log.Printf("get runCtx:%+v\n", runCtx)
 	log.Printf("cost time:%s\n", time.Since(fromTime))
 	// example output
-	// 2023/07/14 17:13:55 get runCtx:&{InputParam:InputParam TaskAOutput:TaskAOutput TaskBOutput:TaskBOutput TaskCOutput:TaskCOutput TaskDOutput:TaskDOutput}
-	// 2023/07/14 17:13:55 cost time:301.555504ms
+	//2023/07/17 11:42:24 TaskAOutPut:TaskAOutput
+	//2023/07/17 11:42:24 get runCtx:&{InputParam:InputParam TaskAOutput:TaskAOutput TaskBOutput:TaskBOutput TaskCOutput:TaskCOutput TaskDOutput:TaskDOutput TaskEOutput:}
+	//2023/07/17 11:42:24 cost time:302.270165ms
 }
+
 
 ```
