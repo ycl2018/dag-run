@@ -23,24 +23,6 @@ type Task[T any] interface {
 	Execute(context.Context, T) error
 }
 
-type taskImpl[T any] struct {
-	name string
-	deps []string
-	f    func(context.Context, T) error
-}
-
-func (t taskImpl[T]) Name() string {
-	return t.name
-}
-
-func (t taskImpl[T]) Dependencies() []string {
-	return t.deps
-}
-
-func (t taskImpl[T]) Execute(ctx context.Context, t2 T) error {
-	return t.f(ctx, t2)
-}
-
 type node[T any] struct {
 	ds   *Scheduler[T]
 	next []*node[T]
@@ -81,10 +63,12 @@ func NewScheduler[T any]() *Scheduler[T] {
 func (d *Scheduler[T]) Submit(tasks ...Task[T]) error {
 	for _, task := range tasks {
 		if task == nil {
-			return errors.New("submit nil task")
+			d.err = errors.New("submit nil task")
+			return d.err
 		}
 		if _, has := d.nodes[task.Name()]; has {
-			return fmt.Errorf("submit failed, task:%s already exist", task.Name())
+			d.err = fmt.Errorf("submit failed, task:%s already exist", task.Name())
+			return d.err
 		}
 		n := &node[T]{task: task, ds: d}
 		d.tasks = append(d.tasks, n)
@@ -92,31 +76,26 @@ func (d *Scheduler[T]) Submit(tasks ...Task[T]) error {
 		d.nodes[task.Name()] = n
 		d.swg.Add(1)
 	}
-
 	return nil
 }
 
 func (d *Scheduler[T]) SubmitFunc(name string, deps []string, f func(context.Context, T) error) error {
 	if name == "" {
-		return errors.New("empty task name")
+		d.err = errors.New("submit empty task name")
+		return d.err
 	}
 	if f == nil {
-		return errors.New("nil func")
+		d.err = fmt.Errorf("submit nil func for name:%s", name)
+		return d.err
 	}
-	task := &taskImpl[T]{name: name, deps: deps, f: f}
-	if _, has := d.nodes[task.Name()]; has {
-		return fmt.Errorf("submit failed, task:%s already exist", task.name)
-	}
-	n := &node[T]{task: task, ds: d}
-	d.tasks = append(d.tasks, n)
-	d.dag.AddNode(n)
-	d.nodes[task.Name()] = n
-	d.swg.Add(1)
-
-	return nil
+	d.err = d.Submit(&nopeTaskImpl[T]{name: name, deps: deps, f: f})
+	return d.err
 }
 
 func (d *Scheduler[T]) Run(ctx context.Context, x T) error {
+	if d.err != nil {
+		return d.err
+	}
 	for _, task := range d.tasks {
 		for _, name := range task.task.Dependencies() {
 			pre, ok := d.nodes[name]
@@ -148,4 +127,9 @@ func (d *Scheduler[T]) CancelWithErr(err error) {
 		d.err = err
 	}
 	d.lock.Unlock()
+}
+
+// TODO: 打印出图结构
+func (d *Scheduler[T]) PrintDag() string {
+	return ""
 }
