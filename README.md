@@ -1,12 +1,14 @@
 # dag-run
 A simple multi-task concurrent scheduling library
 ## English
+- install `go get github.com/ycl2018/dag-run`
 - <p>Generic implementation, support go1.18</p>
 - <p>Based on sync.WaitGroup, very simple and lightweight implementation</p>
 - <p>Multiple tasks with dependencies can be automatically scheduled to run concurrently according to their dependencies, minimizing the running time</p>
 - <p>Support fail fast, if a task returns an error during operation, the rest of the unrunning tasks will be canceled</p>
 
 ## 中文说明
+- 安装 `go get github.com/ycl2018/dag-run`
 - 一个简单的多任务并发调度工具
 - <p>泛型实现，支持go1.18</p>
 - <p>基于sync.WaitGroup，非常简单、轻量的实现</p>
