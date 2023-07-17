@@ -8,6 +8,7 @@ import (
 	"sync"
 )
 
+// Scheduler simple scheduler for typed tasks
 type Scheduler[T any] struct {
 	dag   *Graph
 	nodes map[string]*node[T]
@@ -17,6 +18,7 @@ type Scheduler[T any] struct {
 	err   error
 }
 
+// Task is the interface all your tasks should implement
 type Task[T any] interface {
 	Name() string
 	Dependencies() []string
@@ -56,10 +58,12 @@ func (n *node[T]) start(ctx context.Context, t T) {
 	}()
 }
 
+// NewScheduler build a typed task scheduler
 func NewScheduler[T any]() *Scheduler[T] {
 	return &Scheduler[T]{dag: NewGraph(), nodes: make(map[string]*node[T], 0)}
 }
 
+// Submit provide typed task to scheduler, all task should implement interface Task
 func (d *Scheduler[T]) Submit(tasks ...Task[T]) error {
 	for _, task := range tasks {
 		if task == nil {
@@ -79,6 +83,7 @@ func (d *Scheduler[T]) Submit(tasks ...Task[T]) error {
 	return nil
 }
 
+// SubmitFunc submit a func task to scheduler
 func (d *Scheduler[T]) SubmitFunc(name string, deps []string, f func(context.Context, T) error) error {
 	if name == "" {
 		d.err = errors.New("submit empty task name")
@@ -92,6 +97,7 @@ func (d *Scheduler[T]) SubmitFunc(name string, deps []string, f func(context.Con
 	return d.err
 }
 
+// Run start all tasks and block till all of them done or meet critical err
 func (d *Scheduler[T]) Run(ctx context.Context, x T) error {
 	if d.err != nil {
 		return d.err
@@ -121,6 +127,7 @@ func (d *Scheduler[T]) Run(ctx context.Context, x T) error {
 	return d.err
 }
 
+// CancelWithErr cancel the tasks which has not been stated in the scheduler
 func (d *Scheduler[T]) CancelWithErr(err error) {
 	d.lock.Lock()
 	if d.err == nil {
