@@ -6,6 +6,7 @@ A simple multi-task concurrent scheduling library
 - <p>Based on sync.WaitGroup, very simple and lightweight implementation</p>
 - <p>Multiple tasks with dependencies can be automatically scheduled to run concurrently according to their dependencies, minimizing the running time</p>
 - <p>Support fail fast, if a task returns an error during operation, the rest of the unrunning tasks will be canceled</p>
+- <p>You can use TaskManager to easily register and get your Task tasks</p>
 
 ## 中文说明
 - 安装 `go get github.com/ycl2018/dag-run`
@@ -14,7 +15,7 @@ A simple multi-task concurrent scheduling library
 - <p>基于sync.WaitGroup，非常简单、轻量的实现</p>
 - <p>可以将具有依赖关系的多个任务，自动按其依赖关系并发调度运行，最小化运行时间</p>
 - <p>支持fail fast，运行中如果有任务返回错误，则取消其余未运行任务</p>
-
+- <p>可以使用TaskManager来方便的注册和获取你的Task任务</p>
 ```go
 
 package main
