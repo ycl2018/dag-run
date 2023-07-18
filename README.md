@@ -10,7 +10,7 @@
 - <p>You can use TaskManager to easily register and get your Task tasks</p>
 
 ## 中文说明
-- 安装 `go get github.com/ycl2018/dag-run`
+- <p>安装 `go get github.com/ycl2018/dag-run`</p>
 - <p>泛型实现，支持go1.18</p>
 - <p>基于sync.WaitGroup，非常简单、轻量的实现</p>
 - <p>支持fail fast，运行中如果有任务返回错误，则取消其余未运行任务</p>
