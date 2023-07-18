@@ -44,7 +44,7 @@ var g = func() *Graph {
 }
 
 func ExampleNewGraph() {
-	g().String()
+	fmt.Println(g().String())
 	// OUTPUT:
 	//[A]-> [C,D,]
 	//[B]-> [A,E,D,]
