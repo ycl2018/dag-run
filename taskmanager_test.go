@@ -34,7 +34,7 @@ func TestTaskManager(t *testing.T) {
 		{name: "taskD", deps: []string{"taskB", "taskC"}},
 	}
 
-	lm := NewTaskManager[myTask, any]()
+	lm := NewTaskManager[myTask]()
 	for _, node := range nodes {
 		lm.Register(myTask{name: node.name, deps: node.deps})
 	}

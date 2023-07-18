@@ -4,16 +4,21 @@ import (
 	"fmt"
 )
 
-type TaskManager[T Task[V], V any] struct {
+type DepTask interface {
+	Name() string
+	Dependencies() []string
+}
+
+type TaskManager[T DepTask] struct {
 	Registry[T]
 }
 
-func NewTaskManager[T Task[V], V any]() TaskManager[T, V] {
-	return TaskManager[T, V]{Registry: NewRegistry[T]()}
+func NewTaskManager[T DepTask]() TaskManager[T] {
+	return TaskManager[T]{Registry: NewRegistry[T]()}
 }
 
 // GetAllTaskWithDepsByName get all Tasks with their parent dependencies by names
-func (t TaskManager[T, V]) GetAllTaskWithDepsByName(taskNames []string) (map[string]T, error) {
+func (t TaskManager[T]) GetAllTaskWithDepsByName(taskNames []string) (map[string]T, error) {
 	allTasks := make(map[string]T)
 	var registerTaskByName func(taskName string) error
 	registerTaskByName = func(taskName string) error {
