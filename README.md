@@ -8,6 +8,7 @@
 - <p>Based on sync.WaitGroup, very simple and lightweight implementation</p>
 - <p>Support fail fast, if a task returns an error during operation, the rest of the unrunning tasks will be canceled</p>
 - <p>You can use TaskManager to easily register and get your Task tasks</p>
+- <p>support add injector</p>
 
 ## 中文说明
 - <p>安装 `go get github.com/ycl2018/dag-run`</p>
@@ -16,6 +17,8 @@
 - <p>支持fail fast，运行中如果有任务返回错误，则取消其余未运行任务</p>
 - <p>可以使用TaskManager来方便的注册和获取你的Task任务</p>
 - <p>支持提交函数任务/结构体任务</p>
+- <p>支持注入injector，在每个任务执行前后插入通用的业务逻辑，如打点、监控等</p>
+
 ```go
 
 package main
@@ -40,14 +43,6 @@ import (
 // 这 4 个任务将通过依赖关系自动运行，总成本仅为 300ms 左右。
 
 func main() {
-	// runCtx contains "runParam" and collect all "outputs"
-	// NOTE:
-	//  dagScheduler does not provide concurrency security guarantees for runCtx,
-	//  and situations that require concurrency security (such as concurrently writing maps) need to be maintained by the user
-
-	// runCtx 提供运行参数，收集所有输出
-	// NOTE: dagScheduler 不提供对runCtx的并发安全保证，需要并发安全的情况（如并发写map）需要使用方自己维护
-	
 	var runCtx = &RunCtx{
 		InputParam:  "InputParam",
 		TaskAOutput: "",
@@ -58,24 +53,22 @@ func main() {
 	fromTime := time.Now()
 	err := dagRun.
 		NewFuncScheduler().
-		Submit("TaskA", nil, func() error {
+		Submit("A", nil, func() error {
 			time.Sleep(time.Millisecond * 100)
 			runCtx.TaskAOutput = "TaskAOutput"
 			return nil
 		}).
-		Submit("TaskB", []string{"TaskA"}, func() error {
+		Submit("B", []string{"A"}, func() error {
 			time.Sleep(time.Millisecond * 100)
-			// 可以安全使用上游依赖的输出
-			log.Printf("TaskAOutPut:%s", runCtx.TaskAOutput)
 			runCtx.TaskBOutput = "TaskBOutput"
 			return nil
 		}).
-		Submit("TaskC", []string{"TaskA"}, func() error {
+		Submit("C", []string{"A"}, func() error {
 			time.Sleep(time.Millisecond * 100)
 			runCtx.TaskCOutput = "TaskCOutput"
 			return nil
 		}).
-		Submit("TaskD", []string{"TaskB", "TaskC"}, func() error {
+		Submit("D", []string{"B", "C"}, func() error {
 			time.Sleep(time.Millisecond * 100)
 			runCtx.TaskDOutput = "TaskDOutput"
 			return nil
@@ -85,12 +78,6 @@ func main() {
 		log.Panicf("run task err:%v", err)
 		return
 	}
-	log.Printf("get runCtx:%+v\n", runCtx)
-	log.Printf("cost time:%s\n", time.Since(fromTime))
-	// example output
-	//2023/07/17 11:42:24 TaskAOutPut:TaskAOutput
-	//2023/07/17 11:42:24 get runCtx:&{InputParam:InputParam TaskAOutput:TaskAOutput TaskBOutput:TaskBOutput TaskCOutput:TaskCOutput TaskDOutput:TaskDOutput TaskEOutput:}
-	//2023/07/17 11:42:24 cost time:302.270165ms
 }
 
 
