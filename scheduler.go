@@ -10,12 +10,13 @@ import (
 
 // Scheduler simple scheduler for typed tasks
 type Scheduler[T any] struct {
-	dag   *Graph
-	nodes map[string]*node[T]
-	tasks []*node[T]
-	swg   sync.WaitGroup
-	lock  sync.Mutex
-	err   error
+	dag         *Graph
+	nodes       map[string]*node[T]
+	tasks       []*node[T]
+	swg         sync.WaitGroup
+	lock        sync.Mutex
+	err         error
+	injectorFac InjectorFactory[T]
 }
 
 // Task is the interface all your tasks should implement
@@ -53,7 +54,18 @@ func (n *node[T]) start(ctx context.Context, t T) {
 		}()
 		n.swg.Wait()
 		if n.ds.err == nil {
-			err = n.task.Execute(ctx, t)
+			if n.ds.injectorFac != nil {
+				inject := n.ds.injectorFac.Inject(ctx, n.task)
+				if inject.Pre != nil {
+					inject.Pre(ctx, t)
+				}
+				err = n.task.Execute(ctx, t)
+				if inject.After != nil {
+					err = inject.After(ctx, t, err)
+				}
+			} else {
+				err = n.task.Execute(ctx, t)
+			}
 		}
 	}()
 }
@@ -61,6 +73,11 @@ func (n *node[T]) start(ctx context.Context, t T) {
 // NewScheduler build a typed task scheduler
 func NewScheduler[T any]() *Scheduler[T] {
 	return &Scheduler[T]{dag: NewGraph(), nodes: make(map[string]*node[T], 0)}
+}
+
+func (d *Scheduler[T]) WithInjectorFactory(injectFac InjectorFactory[T]) *Scheduler[T] {
+	d.injectorFac = injectFac
+	return d
 }
 
 // Submit provide typed task to scheduler, all task should implement interface Task

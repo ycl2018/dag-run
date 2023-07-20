@@ -3,6 +3,7 @@ package dagRun
 import (
 	"context"
 	"errors"
+	"log"
 	"sync"
 	"testing"
 	"time"
@@ -159,5 +160,56 @@ func TestExecuteDagWithError(t *testing.T) {
 	for _, name := range expectNotRunTask {
 		_, ok := runCtx.Load(name)
 		assert.False(t, ok)
+	}
+}
+
+func TestSchedulerInjector(t *testing.T) {
+	var nodes = []task{
+		{
+			name:         "T1",
+			dependencies: nil,
+		},
+		{
+			name:         "T2",
+			dependencies: []string{"T1"},
+		},
+		{
+			name:         "T3",
+			dependencies: []string{"T1"},
+		},
+		{
+			name:         "T4",
+			dependencies: []string{"T2", "T3"},
+		},
+		{
+			name:         "T5",
+			dependencies: []string{},
+		},
+	}
+	start := time.Now().Unix()
+	ds := NewScheduler[*sync.Map]()
+	for _, mt := range nodes {
+		assert.Nil(t, ds.Submit(mt))
+	}
+	ds = ds.WithInjectorFactory(InjectorFactoryFunc[*sync.Map](func(ctx context.Context, task Task[*sync.Map]) Injector[*sync.Map] {
+		return Injector[*sync.Map]{
+			Pre: func(ctx context.Context, runCtx *sync.Map) {
+				log.Printf("task:%s start at:%s\n", task.Name(), time.Now())
+			},
+			After: func(ctx context.Context, runCtx *sync.Map, err error) error {
+				log.Printf("task:%s end at:%s\n", task.Name(), time.Now())
+				if err == nil {
+					runCtx.Store(task.Name(), "modified by injector "+task.Name())
+				}
+				return err
+			},
+		}
+	}))
+	runCtx := &sync.Map{}
+	assert.Nil(t, ds.Run(context.Background(), runCtx))
+	assert.Equal(t, int64(3), time.Now().Unix()-start) // program expect running 3 seconds
+	for _, n := range nodes {
+		value, _ := runCtx.Load(n.name)
+		assert.Equal(t, "modified by injector "+n.name, value.(string))
 	}
 }
