@@ -17,6 +17,11 @@ func NewFuncScheduler() *FuncScheduler {
 	}
 }
 
+func (d *FuncScheduler) WithInjectorFactory(injectFac InjectorFactory[types.Nil]) *FuncScheduler {
+	d.scd.injectorFac = injectFac
+	return d
+}
+
 // Submit provide func task to scheduler
 // the param `name` is the taskID which should be unique, `deps` are the
 // names of tasks that this task dependents, `f` defines what this task really does
