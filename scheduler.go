@@ -75,9 +75,16 @@ func NewScheduler[T any]() *Scheduler[T] {
 	return &Scheduler[T]{dag: NewGraph(), nodes: make(map[string]*node[T], 0)}
 }
 
+// WithInjectorFactory add a injectorFactory, which run before/after each task.
 func (d *Scheduler[T]) WithInjectorFactory(injectFac InjectorFactory[T]) *Scheduler[T] {
 	d.injectorFac = injectFac
 	return d
+}
+
+// NewWithInjectorFactory is shortcut of NewScheduler.WithInjectorFactory
+func NewWithInjectorFactory[T any](injectFac InjectorFactory[T]) *Scheduler[T] {
+	s := NewScheduler[T]().WithInjectorFactory(injectFac)
+	return s
 }
 
 // Submit provide typed task to scheduler, all task should implement interface Task
