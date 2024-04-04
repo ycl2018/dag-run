@@ -25,10 +25,10 @@ func (d *FuncScheduler) WithInjectorFactory(injectFac InjectorFactory[types.Nil]
 // Submit provide func task to scheduler
 // the param `name` is the taskID which should be unique, `deps` are the
 // names of tasks that this task dependents, `f` defines what this task really does
-func (d *FuncScheduler) Submit(name string, deps []string, f func() error) *FuncScheduler {
-	_ = d.scd.SubmitFunc(name, deps, func(ctx context.Context, t types.Nil) error {
+func (d *FuncScheduler) Submit(name string, f func() error, deps ...string) *FuncScheduler {
+	_ = d.scd.SubmitFunc(name, func(ctx context.Context, t types.Nil) error {
 		return f()
-	})
+	}, deps...)
 	return d
 }
 

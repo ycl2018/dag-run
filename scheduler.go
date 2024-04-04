@@ -108,7 +108,7 @@ func (d *Scheduler[T]) Submit(tasks ...Task[T]) error {
 }
 
 // SubmitFunc submit a func task to scheduler
-func (d *Scheduler[T]) SubmitFunc(name string, deps []string, f func(context.Context, T) error) error {
+func (d *Scheduler[T]) SubmitFunc(name string,f func(context.Context, T) error, deps ...string) error {
 	if name == "" {
 		d.err = errors.New("submit empty task name")
 		return d.err

@@ -46,7 +46,7 @@ func (g *Graph) String() string {
 		for j := 0; j < len(nearNodes); j++ {
 			sb.WriteString(fmt.Sprintf("%s,", nearNodes[j]))
 		}
-		sb.WriteString(fmt.Sprintf("]\n"))
+		sb.WriteString("]\n")
 	}
 	return sb.String()
 }
@@ -60,48 +60,14 @@ func (g *Graph) DFS(walker Walker) error {
 	defer g.mutex.Unlock()
 	visited := make(map[Node]int, len(g.Nodes))
 	for _, node := range g.Nodes {
-		if err := g.dfs2(node, visited, walker); err != nil {
+		if err := g.dfs(node, visited, walker); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (g *Graph) dfs(node Node, visited map[Node]struct{}, walker Walker) error {
-	if g == nil || len(g.Nodes) == 0 {
-		return nil
-	}
-	if _, ok := visited[node]; ok {
-		return nil
-	}
-	stack := make([]Node, 1)
-	var peek = 0
-	stack[0] = node
-	for peek >= 0 {
-		_node := stack[peek]
-		peek--
-		visited[_node] = struct{}{}
-		nears := g.Edges[_node]
-		for i := 0; i < len(nears); i++ {
-			if _, ok := visited[nears[i]]; ok {
-				continue
-			}
-			peek++
-			// stack满了
-			if len(stack) == peek {
-				stack = append(stack, nears[i])
-			} else {
-				stack[peek] = nears[i]
-			}
-		}
-		if err := walker(_node); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (g *Graph) dfs2(node Node, visited map[Node]int, walker Walker) error {
+func (g *Graph) dfs(node Node, visited map[Node]int, walker Walker) error {
 	if g == nil || len(g.Nodes) == 0 {
 		return nil
 	}
@@ -118,7 +84,7 @@ func (g *Graph) dfs2(node Node, visited map[Node]int, walker Walker) error {
 		} else if visited[v] == -1 {
 			continue
 		} else {
-			if err := g.dfs2(v, visited, walker); err != nil {
+			if err := g.dfs(v, visited, walker); err != nil {
 				return err
 			}
 		}

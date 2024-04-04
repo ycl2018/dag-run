@@ -95,9 +95,9 @@ func TestExecuteDagWithPanic(t *testing.T) {
 	for _, mt := range nodes {
 		assert.Nil(t, ds.Submit(mt))
 	}
-	assert.Nil(t, ds.SubmitFunc("T3", []string{"T2", "T4"}, func(ctx context.Context, s *sync.Map) error {
+	assert.Nil(t, ds.SubmitFunc("T3", func(ctx context.Context, s *sync.Map) error {
 		panic("expect panic in task T3")
-	}))
+	}, "T2", "T4"))
 	runCtx := &sync.Map{}
 	err := ds.Run(context.Background(), runCtx)
 	assert.NotNil(t, err)
@@ -143,9 +143,9 @@ func TestExecuteDagWithError(t *testing.T) {
 	for _, mt := range nodes {
 		assert.Nil(t, ds.Submit(mt))
 	}
-	assert.Nil(t, ds.SubmitFunc("T3", []string{"T2", "T4"}, func(ctx context.Context, _ *sync.Map) error {
+	assert.Nil(t, ds.SubmitFunc("T3", func(ctx context.Context, _ *sync.Map) error {
 		return errors.New("expect err in T3")
-	}))
+	}, "T2", "T4"))
 	runCtx := &sync.Map{}
 	err := ds.Run(context.Background(), runCtx)
 	assert.EqualError(t, err, "expect err in T3")

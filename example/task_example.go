@@ -2,9 +2,10 @@ package main
 
 import (
 	"context"
-	"github.com/ycl2018/dag-run"
 	"log"
 	"time"
+
+	dagRun "github.com/ycl2018/dag-run"
 )
 
 // this example shows that we have 4 tasks(TaskA、B、C、D、E) to run, which dependency relation like
@@ -28,11 +29,11 @@ func main1() {
 		return
 	}
 	// you can submit a func Task
-	err = scd.SubmitFunc("TaskE", []string{"TaskD"}, func(ctx context.Context, runCtx *RunCtx) error {
+	err = scd.SubmitFunc("TaskE", func(ctx context.Context, runCtx *RunCtx) error {
 		time.Sleep(100 * time.Millisecond)
 		runCtx.TaskEOutput = "TaskEOutput"
 		return nil
-	})
+	}, "TaskD")
 	if err != nil {
 		log.Panicf("submit task err:%v\n", err)
 		return

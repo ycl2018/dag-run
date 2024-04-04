@@ -1,9 +1,10 @@
 package main
 
 import (
-	dagRun "github.com/ycl2018/dag-run"
 	"log"
 	"time"
+
+	dagRun "github.com/ycl2018/dag-run"
 )
 
 // this example shows that we have 4 function tasks(eg:TaskA、B、C、D) to run, which dependency relation like
@@ -37,28 +38,28 @@ func main() {
 	fromTime := time.Now()
 	scd := dagRun.
 		NewFuncScheduler().
-		Submit("TaskA", nil, func() error {
+		Submit("TaskA", func() error {
 			time.Sleep(time.Millisecond * 100)
 			runCtx.TaskAOutput = "TaskAOutput"
 			return nil
 		}).
-		Submit("TaskB", []string{"TaskA"}, func() error {
+		Submit("TaskB", func() error {
 			time.Sleep(time.Millisecond * 100)
 			// 可以安全使用上游依赖的输出
 			log.Printf("TaskAOutPut:%s", runCtx.TaskAOutput)
 			runCtx.TaskBOutput = "TaskBOutput"
 			return nil
-		}).
-		Submit("TaskC", []string{"TaskA"}, func() error {
+		}, "TaskA").
+		Submit("TaskC", func() error {
 			time.Sleep(time.Millisecond * 100)
 			runCtx.TaskCOutput = "TaskCOutput"
 			return nil
-		}).
-		Submit("TaskD", []string{"TaskB", "TaskC"}, func() error {
+		}, "TaskA").
+		Submit("TaskD", func() error {
 			time.Sleep(time.Millisecond * 100)
 			runCtx.TaskDOutput = "TaskDOutput"
 			return nil
-		})
+		}, "TaskB", "TaskC")
 	err := scd.
 		Run()
 	if err != nil {
