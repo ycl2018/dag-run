@@ -25,11 +25,13 @@
 - <p>支持提交函数任务/结构体任务</p>
 - <p>支持注入injector，在每个任务执行前后插入通用的业务逻辑，如打点、监控等</p>
 
-## Example1：提交函数
-![example1](iamges/example1.png)
+## Example1：简单任务，提交函数
+ ![example1](images/example1.png)
+ 
+ 这个例子中，任务B、C依赖A任务的完成、任务D依赖B、C任务的完成。任一任务返回错误，执行将会提前终止。
 ```go
 err := dagRun.NewFuncScheduler().
-		Submit("A", a).
+		Submit("A", a). /* 参数： 名称，任务函数，依赖 */
 		Submit("B", b, "A").
 		Submit("C", c, "A").
 		Submit("D", d, "B", "C").
@@ -40,3 +42,4 @@ var b = func() error {return nil}
 var c = func() error {return nil}
 var d = func() error {return nil}
 ```
+## Example2： TODO
