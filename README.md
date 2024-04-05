@@ -25,11 +25,11 @@
 - <p>支持提交函数任务/结构体任务</p>
 - <p>支持注入injector，在每个任务执行前后插入通用的业务逻辑，如打点、监控等</p>
 
-## Example1：简单任务，提交函数
+## Example1：函数任务
  ![example1](images/example1.png)
  
  这个例子中，任务B、C依赖A任务的完成、任务D依赖B、C任务的完成。任一任务返回错误，执行将会提前终止。
-```go
+```Go
 err := dagRun.NewFuncScheduler().
 		Submit("A", a). /* 参数： 名称，任务函数，依赖 */
 		Submit("B", b, "A").
@@ -42,4 +42,81 @@ var b = func() error {return nil}
 var c = func() error {return nil}
 var d = func() error {return nil}
 ```
-## Example2： TODO
+## Example2：普通任务
+
+
+
+实际业务场景下，任务的执行通常会在一个确定的执行环境中，如提供任务入参、任务配置、收集任务结果等。你可以通过实现Task接口来定义你的任务，其中的泛型参数T即为任务环境参数。
+
+```Go
+// Task is the interface all your tasks should implement
+type Task[T any] interface {
+	Name() string
+	Dependencies() []string
+	Execute(context.Context, T) error
+}
+```
+
+本例展示任务在执行环境参数sync.Map下的使用场景。
+
+![example1](images/example2.png)
+
+```Go
+
+type taskA struct{}
+func (ta taskA) Name() string {return "A"}
+func (ta taskA) Dependencies() []string {return nil}
+func (ta taskA) Execute(ctx context.Context, runCtx *sync.Map) error {return nil}
+
+type taskB struct{}
+func (ta taskB) Name() string {return "B"}
+func (ta taskB) Dependencies() []string {return []string["A"]}
+func (ta taskB) Execute(ctx context.Context, runCtx *sync.Map) error {return nil}
+
+type taskC struct{}
+func (ta taskC) Name() string {return "C"}
+func (ta taskC) Dependencies() []string {return []string["A"]}
+func (ta taskC) Execute(ctx context.Context, runCtx *sync.Map) error {return nil}
+
+ds := NewScheduler[*sync.Map]()
+ds.Submit(taskA{})
+ds.Submit(taskB{})
+ds.Submit(taskC{})
+err := ds.Run(context.Background(), &sync.Map{})
+```
+
+支持自定义拦截器工厂，为每个任务生成一个拦截器，以便在其执行前后做一些前置/后置处理。
+
+拦截器和拦截器工厂接口定义
+
+```Go
+type Injector[T any] struct {
+	Pre   func(ctx context.Context, runCtx T)
+	After func(ctx context.Context, runCtx T, err error) error
+}
+
+type InjectorFactory[T any] interface {
+	Inject(ctx context.Context, task Task[T]) Injector[T]
+}
+
+type InjectorFactoryFunc[T any] func(ctx context.Context, task Task[T]) Injector[T]
+
+func (i InjectorFactoryFunc[T]) Inject(ctx context.Context, task Task[T]) Injector[T] {
+	return i(ctx, task)
+}
+```
+比如在每个任务执行前后打印日志的自定义拦截器工厂实现
+
+```Go
+ds = ds.WithInjectorFactory(InjectorFactoryFunc[*sync.Map](func(ctx context.Context, task Task[*sync.Map]) Injector[*sync.Map] {
+		return Injector[*sync.Map]{
+			Pre: func(ctx context.Context, runCtx *sync.Map) {
+				log.Printf("task:%s start at:%s\n", task.Name(), time.Now())
+			},
+			After: func(ctx context.Context, runCtx *sync.Map, err error) error {
+				log.Printf("task:%s end at:%s\n", task.Name(), time.Now())
+				return err
+			},
+		}
+	}))
+```
