@@ -110,9 +110,11 @@ func (i InjectorFactoryFunc[T]) Inject(ctx context.Context, task Task[T]) Inject
 ```Go
 ds = ds.WithInjectorFactory(InjectorFactoryFunc[*sync.Map](func(ctx context.Context, task Task[*sync.Map]) Injector[*sync.Map] {
 		return Injector[*sync.Map]{
+			// 任务执行前
 			Pre: func(ctx context.Context, runCtx *sync.Map) {
 				log.Printf("task:%s start at:%s\n", task.Name(), time.Now())
 			},
+			// 任务执行后
 			After: func(ctx context.Context, runCtx *sync.Map, err error) error {
 				log.Printf("task:%s end at:%s\n", task.Name(), time.Now())
 				return err
