@@ -69,14 +69,14 @@ func (ta taskA) Dependencies() []string {return nil}
 func (ta taskA) Execute(ctx context.Context, runCtx *sync.Map) error {return nil}
 
 type taskB struct{}
-func (ta taskB) Name() string {return "B"}
-func (ta taskB) Dependencies() []string {return []string["A"]}
-func (ta taskB) Execute(ctx context.Context, runCtx *sync.Map) error {return nil}
+func (tb taskB) Name() string {return "B"}
+func (tb taskB) Dependencies() []string {return []string{"A"}}
+func (tb taskB) Execute(ctx context.Context, runCtx *sync.Map) error {return nil}
 
 type taskC struct{}
-func (ta taskC) Name() string {return "C"}
-func (ta taskC) Dependencies() []string {return []string["A"]}
-func (ta taskC) Execute(ctx context.Context, runCtx *sync.Map) error {return nil}
+func (tc taskC) Name() string {return "C"}
+func (tc taskC) Dependencies() []string {return []string{"A"}}
+func (tc taskC) Execute(ctx context.Context, runCtx *sync.Map) error {return nil}
 
 ds := NewScheduler[*sync.Map]()
 ds.Submit(taskA{})
