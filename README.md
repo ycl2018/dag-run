@@ -152,4 +152,4 @@ println(dotStr)
 ```
 将打印转换为图形：
 
-![](images/graphviz.png)
+<img align="center" src="./images/graphviz.png>
