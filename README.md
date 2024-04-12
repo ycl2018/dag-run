@@ -151,5 +151,6 @@ println(dotStr)
 // }
 ```
 将打印转换为图形：
-
-<img align="center" src="./images/graphviz.png>
+<p align="center">
+<img  src="./images/graphviz.png" />
+</p>
