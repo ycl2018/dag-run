@@ -32,4 +32,6 @@ func TestFuncScheduler(t *testing.T) {
 		value, _ := runCtx.Load(v)
 		assert.Equal(t, v, value.(string))
 	}
+	dotStr := scd.Dot()
+	t.Log(dotStr)
 }

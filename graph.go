@@ -1,6 +1,7 @@
 package dagRun
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 	"sync"
@@ -49,6 +50,35 @@ func (g *Graph) String() string {
 		sb.WriteString("]\n")
 	}
 	return sb.String()
+}
+
+func (g *Graph) DOT() string {
+	var dc dotContext
+	dc.Edges = g.Edges
+	var inDegree = map[Node]int{}
+	// 0 outDegrees
+	for _, n := range g.Nodes {
+		if to, ok := g.Edges[n]; !ok {
+			dc.ToEnd = append(dc.ToEnd, n)
+		} else {
+			for _, toN := range to {
+				inDegree[toN]++
+			}
+		}
+	}
+	//0 indegrees
+	for _, n := range g.Nodes {
+		if inDegree[n] == 0 {
+			dc.ToStart = append(dc.ToStart, n)
+		}
+	}
+
+	buf := new(bytes.Buffer)
+	err := dotTemplate.Execute(buf, dc)
+	if err != nil {
+		panic(err)
+	}
+	return buf.String()
 }
 
 type Walker func(node Node) error

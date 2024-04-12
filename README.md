@@ -18,7 +18,7 @@
 
 特性：
 
-- <p>泛型实现，支持go1.18</p>
+- <p>支持泛型</p>
 - <p>基于sync.WaitGroup，非常简单、轻量的实现</p>
 - <p>支持fail fast，运行中如果有任务返回错误，则取消其余未运行任务</p>
 - <p>可以使用TaskManager来方便的注册和获取你的Task任务</p>
@@ -85,6 +85,7 @@ ds.Submit(taskC{})
 err := ds.Run(context.Background(), &sync.Map{})
 ```
 
+## 拦截器
 支持自定义拦截器工厂，为每个任务生成一个拦截器，以便在其执行前后做一些前置/后置处理。
 
 拦截器和拦截器工厂接口定义
@@ -122,3 +123,33 @@ ds = ds.WithInjectorFactory(InjectorFactoryFunc[*sync.Map](func(ctx context.Cont
 		}
 	}))
 ```
+
+## Dump为DOT语言
+
+支持将构建的任务有向图转换为dot语言显示
+
+```Go
+dotStr := dagRun.NewFuncScheduler().
+		Submit("A", a).
+		Submit("B", b, "A").
+		Submit("C", c, "A").
+		Submit("D", d, "B", "C").
+		Submit("E", e, "C", "D").
+		Dot()
+
+println(dotStr)
+
+// digraph G {
+// "start"[shape=box,color="green"]
+// "end"[shape=box,color="red"]
+// "A" -> {"B","C"}
+// "B" -> {"D"}
+// "C" -> {"D","E"}
+// "D" -> {"E"}
+// "start" -> {"A"}
+// {"E"}  -> "end"
+// }
+```
+将打印转换为图形：
+
+![](images/graphviz.png)

@@ -42,6 +42,11 @@ func (d *FuncScheduler) Run() error {
 	return d.scd.Run(context.Background(), types.Nil{})
 }
 
+// Dot dump dag in dot language
+func (d *FuncScheduler) Dot() string {
+	return d.scd.Dot()
+}
+
 type nopeTaskImpl[T any] struct {
 	name string
 	deps []string

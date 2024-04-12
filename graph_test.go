@@ -53,6 +53,22 @@ func ExampleNewGraph() {
 	//[E]-> []
 }
 
+func ExampleGraph_DOT() {
+	fmt.Println(g().DOT())
+	// OUTPUT:
+	//digraph G {
+	//"start"[shape=box,color="green"]
+	//"end"[shape=box,color="red"]
+	//"A" -> {"C","D"}
+	//"B" -> {"A","E","D"}
+	//"C" -> {"D"}
+	//"D" -> {"E"}
+	//"start" -> {"B"}
+	//{"E"}  -> "end"
+	//}
+	//
+}
+
 func ExampleGraph_DFS() {
 	graph := g()
 	// graph.AddEdge(nodes[4], nodes[0])

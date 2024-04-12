@@ -2,7 +2,6 @@ package dagRun
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"runtime/debug"
 	"sync"
@@ -17,6 +16,7 @@ type Scheduler[T any] struct {
 	lock        sync.Mutex
 	err         error
 	injectorFac InjectorFactory[T]
+	sealed      bool
 }
 
 // Task is the interface all your tasks should implement
@@ -89,13 +89,16 @@ func NewWithInjectorFactory[T any](injectFac InjectorFactory[T]) *Scheduler[T] {
 
 // Submit provide typed task to scheduler, all task should implement interface Task
 func (d *Scheduler[T]) Submit(tasks ...Task[T]) error {
+	if d.sealed {
+		return ErrSealed
+	}
 	for _, task := range tasks {
 		if task == nil {
-			d.err = errors.New("submit nil task")
+			d.err = ErrNilTask
 			return d.err
 		}
 		if _, has := d.nodes[task.Name()]; has {
-			d.err = fmt.Errorf("submit failed, task:%s already exist", task.Name())
+			d.err = ErrTaskExist
 			return d.err
 		}
 		n := &node[T]{task: task, ds: d}
@@ -108,13 +111,13 @@ func (d *Scheduler[T]) Submit(tasks ...Task[T]) error {
 }
 
 // SubmitFunc submit a func task to scheduler
-func (d *Scheduler[T]) SubmitFunc(name string,f func(context.Context, T) error, deps ...string) error {
+func (d *Scheduler[T]) SubmitFunc(name string, f func(context.Context, T) error, deps ...string) error {
 	if name == "" {
-		d.err = errors.New("submit empty task name")
+		d.err = ErrNoTaskName
 		return d.err
 	}
 	if f == nil {
-		d.err = fmt.Errorf("submit nil func for name:%s", name)
+		d.err = ErrNilFunc
 		return d.err
 	}
 	d.err = d.Submit(&nopeTaskImpl[T]{name: name, deps: deps, f: f})
@@ -126,11 +129,12 @@ func (d *Scheduler[T]) Run(ctx context.Context, x T) error {
 	if d.err != nil {
 		return d.err
 	}
+	d.sealed = true
 	for _, task := range d.tasks {
 		for _, name := range task.task.Dependencies() {
 			pre, ok := d.nodes[name]
 			if !ok {
-				return fmt.Errorf("task :%s's dependency:%s is not submited", task, name)
+				return fmt.Errorf("%w: task :%s's dependency:%s is not submited", ErrTaskNotExist, task, name)
 			}
 			d.dag.AddEdge(pre, task)
 			pre.next = append(pre.next, task)
@@ -158,4 +162,9 @@ func (d *Scheduler[T]) CancelWithErr(err error) {
 		d.err = err
 	}
 	d.lock.Unlock()
+}
+
+// Dot dump dag in dot language
+func (d *Scheduler[T]) Dot() string {
+	return d.dag.DOT()
 }
