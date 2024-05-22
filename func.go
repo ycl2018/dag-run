@@ -2,22 +2,23 @@ package dagRun
 
 import (
 	"context"
-	"go/types"
 )
+
+type nopeCtx struct{}
 
 // FuncScheduler simple scheduler for func tasks
 type FuncScheduler struct {
-	scd *Scheduler[types.Nil]
+	scd *Scheduler[nopeCtx]
 }
 
 // NewFuncScheduler build a func task scheduler
 func NewFuncScheduler() *FuncScheduler {
 	return &FuncScheduler{
-		scd: NewScheduler[types.Nil](),
+		scd: NewScheduler[nopeCtx](),
 	}
 }
 
-func (d *FuncScheduler) WithInjectorFactory(injectFac InjectorFactory[types.Nil]) *FuncScheduler {
+func (d *FuncScheduler) WithInjectorFactory(injectFac InjectorFactory[nopeCtx]) *FuncScheduler {
 	d.scd.injectorFac = injectFac
 	return d
 }
@@ -26,7 +27,7 @@ func (d *FuncScheduler) WithInjectorFactory(injectFac InjectorFactory[types.Nil]
 // the param `name` is the taskID which should be unique, `deps` are the
 // names of tasks that this task dependents, `f` defines what this task really does
 func (d *FuncScheduler) Submit(name string, f func() error, deps ...string) *FuncScheduler {
-	_ = d.scd.SubmitFunc(name, func(ctx context.Context, t types.Nil) error {
+	_ = d.scd.SubmitFunc(name, func(ctx context.Context, t nopeCtx) error {
 		return f()
 	}, deps...)
 	return d
@@ -39,7 +40,7 @@ func (d *FuncScheduler) Err() error {
 
 // Run start all tasks and block till all of them done or meet critical err
 func (d *FuncScheduler) Run() error {
-	return d.scd.Run(context.Background(), types.Nil{})
+	return d.scd.Run(context.Background(), nopeCtx{})
 }
 
 // Dot dump dag in dot language
