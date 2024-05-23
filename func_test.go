@@ -4,8 +4,6 @@ import (
 	"sync"
 	"testing"
 	"time"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func TestFuncScheduler(t *testing.T) {
@@ -26,11 +24,16 @@ func TestFuncScheduler(t *testing.T) {
 		time.Sleep(1 * time.Second)
 		return nil
 	}, "T2")
-	assert.Nil(t, scd.Run())
+	err := scd.Run()
+	if err != nil {
+		t.Errorf("scd run err:%v", err)
+	}
 	expectValues := []string{"T1", "T2", "T3"}
 	for _, v := range expectValues {
 		value, _ := runCtx.Load(v)
-		assert.Equal(t, v, value.(string))
+		if v != value.(string) {
+			t.Errorf("expected:%s but get:%s", v, value)
+		}
 	}
 	dotStr := scd.Dot()
 	t.Log(dotStr)

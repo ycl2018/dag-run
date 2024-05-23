@@ -2,9 +2,15 @@ package dagRun
 
 import (
 	"context"
-	"github.com/stretchr/testify/assert"
 	"testing"
 )
+
+func checkNotNil(t *testing.T, value error) {
+	t.Helper()
+	if value == nil {
+		t.Errorf("want not nil, but get nil")
+	}
+}
 
 type myTask struct {
 	name string
@@ -40,18 +46,22 @@ func TestTaskManager(t *testing.T) {
 	}
 	// test1
 	tasks, err := lm.GetAllTaskWithDepsByName([]string{"taskD"})
-	assert.Nil(t, err)
-	assert.Equal(t, 4, len(tasks))
+	checkNil(t, err)
+	checkEqual(t, 4, len(tasks))
 	wants := []string{"taskA", "taskB", "taskC", "taskD"}
 	for _, w := range wants {
-		assert.NotNil(t, tasks[w])
+		if _, ok := tasks[w]; !ok {
+			t.Errorf("not get task:%s", w)
+		}
 	}
 	// test2
 	tasks, err = lm.GetAllTaskWithDepsByName([]string{"taskC"})
-	assert.Nil(t, err)
-	assert.Equal(t, 2, len(tasks))
+	checkNil(t, err)
+	checkEqual(t, 2, len(tasks))
 	wants = []string{"taskA", "taskC"}
 	for _, w := range wants {
-		assert.NotNil(t, tasks[w])
+		if _, ok := tasks[w]; !ok {
+			t.Errorf("not get task:%s", w)
+		}
 	}
 }
