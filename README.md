@@ -92,7 +92,7 @@ err := ds.Run(context.Background(), &sync.Map{})
 
 ```Go
 type Injector[T any] struct {
-	Pre   func(ctx context.Context, runCtx T)
+	Pre   func(ctx context.Context, runCtx T) error
 	After func(ctx context.Context, runCtx T, err error) error
 }
 
@@ -112,8 +112,9 @@ func (i InjectorFactoryFunc[T]) Inject(ctx context.Context, task Task[T]) Inject
 ds = ds.WithInjectorFactory(InjectorFactoryFunc[*sync.Map](func(ctx context.Context, task Task[*sync.Map]) Injector[*sync.Map] {
 		return Injector[*sync.Map]{
 			// 任务执行前
-			Pre: func(ctx context.Context, runCtx *sync.Map) {
+			Pre: func(ctx context.Context, runCtx *sync.Map) error {
 				log.Printf("task:%s start at:%s\n", task.Name(), time.Now())
+                return nil
 			},
 			// 任务执行后
 			After: func(ctx context.Context, runCtx *sync.Map, err error) error {

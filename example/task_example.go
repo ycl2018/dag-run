@@ -8,19 +8,6 @@ import (
 	dagRun "github.com/ycl2018/dag-run"
 )
 
-// this example shows that we have 4 tasks(TaskA、B、C、D、E) to run, which dependency relation like
-// 		TaskA -- TaskB----\
-//   		└ ---- TaskC--- TaskD-----TaskE
-// each Task cost 100ms to run
-// use dagScheduler, all these 5 tasks will run automatically by dependency relation, and total costs
-// will only be about 400ms.
-
-// 这个例子显示我们有5个任务（TaskA、B、C、D、E）要运行，
-// 		TaskA -- TaskB----\
-//   		└ ---- TaskC--- TaskD-----TaskE
-// 每个Task花费100ms 使用 dagScheduler 运行，
-// 这 5 个任务将通过依赖关系自动运行，总成本仅为 400ms 左右。
-
 func main1() {
 	scd := dagRun.NewScheduler[*RunCtx]()
 	err := scd.Submit(TaskA{}, TaskB{}, TaskC{}, TaskD{})
@@ -74,6 +61,10 @@ const sleepTime = time.Millisecond * 100
 
 type TaskA struct{}
 
+func (t TaskA) Options() []dagRun.TaskOption {
+	return nil
+}
+
 func (t TaskA) Name() string {
 	return "TaskA"
 }
@@ -104,6 +95,10 @@ func (t TaskB) Execute(ctx context.Context, runCtx *RunCtx) error {
 	return nil
 }
 
+func (t TaskB) Options() []dagRun.TaskOption {
+	return nil
+}
+
 type TaskC struct{}
 
 func (t TaskC) Name() string {
@@ -120,6 +115,10 @@ func (t TaskC) Execute(ctx context.Context, runCtx *RunCtx) error {
 	return nil
 }
 
+func (t TaskC) Options() []dagRun.TaskOption {
+	return nil
+}
+
 type TaskD struct{}
 
 func (t TaskD) Name() string {
@@ -133,5 +132,9 @@ func (t TaskD) Dependencies() []string {
 func (t TaskD) Execute(ctx context.Context, runCtx *RunCtx) error {
 	time.Sleep(sleepTime)
 	runCtx.TaskDOutput = "TaskDOutput"
+	return nil
+}
+
+func (t TaskD) Options() []dagRun.TaskOption {
 	return nil
 }

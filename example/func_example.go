@@ -7,27 +7,7 @@ import (
 	dagRun "github.com/ycl2018/dag-run"
 )
 
-// this example shows that we have 4 function tasks(eg:TaskA、B、C、D) to run, which dependency relation like
-// 		TaskA -- TaskB----\
-//   		└ ---- TaskC--- TaskD
-// each Task cost 100ms to run
-// use dagScheduler, all these 4 tasks will run automatically by dependency relation, and total costs
-// will only be about 300ms.
-
-// 这个例子显示我们有4个任务(函数的形式)（例如：TaskA、B、C、D）要运行，
-// 		TaskA -- TaskB----\
-//   		└ ---- TaskC--- TaskD
-// 每个Task花费100ms 使用 dagScheduler 运行，
-// 这 4 个任务将通过依赖关系自动运行，总成本仅为 300ms 左右。
-
 func main() {
-	// runCtx contains "runParam" and collect all "outputs"
-	// NOTE:
-	//  dagScheduler does not provide concurrency security guarantees for runCtx,
-	//  and situations that require concurrency security (such as concurrently writing maps) need to be maintained by the user
-
-	// runCtx 提供运行参数，收集所有输出
-	// NOTE: dagScheduler 不提供对runCtx的并发安全保证，需要并发安全的情况（如并发写map）需要使用方自己维护
 	var runCtx = &RunCtx{
 		InputParam:  "InputParam",
 		TaskAOutput: "",

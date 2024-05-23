@@ -24,6 +24,7 @@ type Task[T any] interface {
 	Name() string
 	Dependencies() []string
 	Execute(context.Context, T) error
+	Options() []TaskOption
 }
 
 type node[T any] struct {
@@ -39,6 +40,7 @@ func (n *node[T]) String() string {
 
 func (n *node[T]) start(ctx context.Context, t T) {
 	go func() {
+		n.swg.Wait()
 		var err error
 		defer func() {
 			if pErr := recover(); pErr != nil {
@@ -52,22 +54,78 @@ func (n *node[T]) start(ctx context.Context, t T) {
 				n2.swg.Done()
 			}
 		}()
-		n.swg.Wait()
-		if n.ds.err == nil {
-			if n.ds.injectorFac != nil {
-				inject := n.ds.injectorFac.Inject(ctx, n.task)
-				if inject.Pre != nil {
-					inject.Pre(ctx, t)
+		if n.ds.err != nil {
+			return
+		}
+		var execute = func() {
+			var o option
+			ops := n.task.Options()
+			if ops != nil {
+				for _, op := range ops {
+					op(&o)
 				}
-				err = n.task.Execute(ctx, t)
-				if inject.After != nil {
-					err = inject.After(ctx, t, err)
-				}
-			} else {
-				err = n.task.Execute(ctx, t)
 			}
+			err = n.executeTask(ctx, n.task, t, o)
+		}
+		if n.ds.injectorFac != nil {
+			inject := n.ds.injectorFac.Inject(ctx, n.task)
+			if inject.Pre != nil {
+				err = inject.Pre(ctx, t)
+				if err != nil {
+					return
+				}
+			}
+			execute()
+			if inject.After != nil {
+				err = inject.After(ctx, t, err)
+			}
+		} else {
+			execute()
 		}
 	}()
+}
+
+func (n *node[T]) executeTask(ctx context.Context, task Task[T], t T, op option) error {
+	var err error
+	var runWithRetry = func() {
+		if op.retry < 1 {
+			op.retry = 1
+		}
+		for i := 0; i < op.retry; i++ {
+			err = task.Execute(ctx, t)
+			if err == nil {
+				break
+			}
+		}
+	}
+	if op.timeout > 0 {
+		ctx, cancel := context.WithTimeout(ctx, op.timeout)
+		defer cancel()
+		var done = make(chan struct{})
+		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					err = fmt.Errorf("task:%s panic:%v", task.Name(), r)
+				}
+				done <- struct{}{}
+			}()
+			runWithRetry()
+		}()
+	BLOCK:
+		for {
+			select {
+			case <-ctx.Done():
+				// timeout
+				err = fmt.Errorf("task:%s run timeout", task.Name())
+				break BLOCK
+			case <-done:
+				break BLOCK
+			}
+		}
+	} else {
+		runWithRetry()
+	}
+	return err
 }
 
 // NewScheduler build a typed task scheduler
@@ -112,6 +170,11 @@ func (d *Scheduler[T]) Submit(tasks ...Task[T]) error {
 
 // SubmitFunc submit a func task to scheduler
 func (d *Scheduler[T]) SubmitFunc(name string, f func(context.Context, T) error, deps ...string) error {
+	return d.SubmitFuncWithOps(name, f, nil, deps...)
+}
+
+// SubmitFuncWithOps submit a func task to scheduler with options
+func (d *Scheduler[T]) SubmitFuncWithOps(name string, f func(context.Context, T) error, ops []TaskOption, deps ...string) error {
 	if name == "" {
 		d.err = ErrNoTaskName
 		return d.err
@@ -120,7 +183,7 @@ func (d *Scheduler[T]) SubmitFunc(name string, f func(context.Context, T) error,
 		d.err = ErrNilFunc
 		return d.err
 	}
-	d.err = d.Submit(&nopeTaskImpl[T]{name: name, deps: deps, f: f})
+	d.err = d.Submit(&defaultTaskImpl[T]{name: name, deps: deps, f: f, options: ops})
 	return d.err
 }
 
@@ -134,7 +197,7 @@ func (d *Scheduler[T]) Run(ctx context.Context, x T) error {
 		for _, name := range task.task.Dependencies() {
 			pre, ok := d.nodes[name]
 			if !ok {
-				return fmt.Errorf("%w: task :%s's dependency:%s is not submited", ErrTaskNotExist, task, name)
+				return fmt.Errorf("%w: task :%s's dependency:%s not found", ErrTaskNotExist, task, name)
 			}
 			d.dag.AddEdge(pre, task)
 			pre.next = append(pre.next, task)
@@ -160,6 +223,9 @@ func (d *Scheduler[T]) CancelWithErr(err error) {
 	d.lock.Lock()
 	if d.err == nil {
 		d.err = err
+	} else {
+		// group errors
+		d.err = fmt.Errorf("%s,<%s>", d.err, err.Error())
 	}
 	d.lock.Unlock()
 }

@@ -23,13 +23,19 @@ func (d *FuncScheduler) WithInjectorFactory(injectFac InjectorFactory[nopeCtx]) 
 	return d
 }
 
-// Submit provide func task to scheduler
-// the param `name` is the taskID which should be unique, `deps` are the
-// names of tasks that this task dependents, `f` defines what this task really does
+// Submit func task to scheduler
 func (d *FuncScheduler) Submit(name string, f func() error, deps ...string) *FuncScheduler {
 	_ = d.scd.SubmitFunc(name, func(ctx context.Context, t nopeCtx) error {
 		return f()
 	}, deps...)
+	return d
+}
+
+// SubmitWithOps submit func task to scheduler with some options
+func (d *FuncScheduler) SubmitWithOps(name string, f func() error, ops []TaskOption, deps ...string) *FuncScheduler {
+	_ = d.scd.SubmitFuncWithOps(name, func(ctx context.Context, t nopeCtx) error {
+		return f()
+	}, ops, deps...)
 	return d
 }
 
@@ -48,20 +54,25 @@ func (d *FuncScheduler) Dot() string {
 	return d.scd.Dot()
 }
 
-type nopeTaskImpl[T any] struct {
-	name string
-	deps []string
-	f    func(context.Context, T) error
+type defaultTaskImpl[T any] struct {
+	name    string
+	deps    []string
+	f       func(context.Context, T) error
+	options []TaskOption
 }
 
-func (t nopeTaskImpl[T]) Name() string {
+func (t defaultTaskImpl[T]) Options() []TaskOption {
+	return t.options
+}
+
+func (t defaultTaskImpl[T]) Name() string {
 	return t.name
 }
 
-func (t nopeTaskImpl[T]) Dependencies() []string {
+func (t defaultTaskImpl[T]) Dependencies() []string {
 	return t.deps
 }
 
-func (t nopeTaskImpl[T]) Execute(ctx context.Context, t2 T) error {
+func (t defaultTaskImpl[T]) Execute(ctx context.Context, t2 T) error {
 	return t.f(ctx, t2)
 }
