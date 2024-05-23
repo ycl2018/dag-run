@@ -3,7 +3,7 @@ package dagRun
 import "context"
 
 type Injector[T any] struct {
-	Pre   func(ctx context.Context, runCtx T)
+	Pre   func(ctx context.Context, runCtx T) error
 	After func(ctx context.Context, runCtx T, err error) error
 }
 

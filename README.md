@@ -41,19 +41,22 @@ var a = func() error {return nil}
 var b = func() error {return nil}
 var c = func() error {return nil}
 var d = func() error {return nil}
+
+// 支持使用 SubmitWithOps 来设置任务的重试次数和超时时间
+SubmitWithOps("A", a, []TaskOption{Retry(3),Timeout(3*time.Second)})
 ```
-## Example2：普通任务
+## Example2：对象任务
 
 
 
 实际业务场景下，任务的执行通常会在一个确定的执行环境中，如提供任务入参、任务配置、收集任务结果等。你可以通过实现Task接口来定义你的任务，其中的泛型参数T即为任务环境参数。
 
 ```Go
-// Task is the interface all your tasks should implement
 type Task[T any] interface {
 	Name() string
 	Dependencies() []string
 	Execute(context.Context, T) error
+	Options() []TaskOption
 }
 ```
 
@@ -63,20 +66,23 @@ type Task[T any] interface {
 
 ```Go
 
-type taskA struct{}
+type taskA struct{NoOptionTask}
 func (ta taskA) Name() string {return "A"}
 func (ta taskA) Dependencies() []string {return nil}
 func (ta taskA) Execute(ctx context.Context, runCtx *sync.Map) error {return nil}
 
-type taskB struct{}
+type taskB struct{NoOptionTask}
 func (tb taskB) Name() string {return "B"}
 func (tb taskB) Dependencies() []string {return []string{"A"}}
 func (tb taskB) Execute(ctx context.Context, runCtx *sync.Map) error {return nil}
 
-type taskC struct{}
+type taskC struct{NoOptionTask}
 func (tc taskC) Name() string {return "C"}
 func (tc taskC) Dependencies() []string {return []string{"A"}}
 func (tc taskC) Execute(ctx context.Context, runCtx *sync.Map) error {return nil}
+
+type NoOptionTask struct{}
+func (n NoOptionTask) Options() []dagRun.TaskOption {return nil}
 
 ds := NewScheduler[*sync.Map]()
 ds.Submit(taskA{})
@@ -92,7 +98,7 @@ err := ds.Run(context.Background(), &sync.Map{})
 
 ```Go
 type Injector[T any] struct {
-	Pre   func(ctx context.Context, runCtx T)
+	Pre   func(ctx context.Context, runCtx T) error
 	After func(ctx context.Context, runCtx T, err error) error
 }
 
@@ -112,8 +118,9 @@ func (i InjectorFactoryFunc[T]) Inject(ctx context.Context, task Task[T]) Inject
 ds = ds.WithInjectorFactory(InjectorFactoryFunc[*sync.Map](func(ctx context.Context, task Task[*sync.Map]) Injector[*sync.Map] {
 		return Injector[*sync.Map]{
 			// 任务执行前
-			Pre: func(ctx context.Context, runCtx *sync.Map) {
+			Pre: func(ctx context.Context, runCtx *sync.Map) error {
 				log.Printf("task:%s start at:%s\n", task.Name(), time.Now())
+                return nil
 			},
 			// 任务执行后
 			After: func(ctx context.Context, runCtx *sync.Map, err error) error {
