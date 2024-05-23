@@ -7,9 +7,28 @@ import (
 	"sync"
 	"testing"
 	"time"
-
-	"github.com/stretchr/testify/assert"
 )
+
+func checkNil(t *testing.T, value error) {
+	t.Helper()
+	if value != nil {
+		t.Errorf("want nil but get:%v", value)
+	}
+}
+
+func checkEqual[T comparable](t *testing.T, want, get T) {
+	t.Helper()
+	if want != get {
+		t.Errorf("want:%v but get:%v", want, get)
+	}
+}
+
+func checkGreater[T int | float64 | int32 | int64 | float32](t *testing.T, greater, than T) {
+	t.Helper()
+	if greater <= than {
+		t.Errorf("want greater value than %v, but get:%v", than, greater)
+	}
+}
 
 type task struct {
 	name         string
@@ -61,17 +80,17 @@ func TestNewScheduler(t *testing.T) {
 	start := time.Now().UnixMilli()
 	ds := NewScheduler[*sync.Map]()
 	for _, mt := range nodes {
-		assert.Nil(t, ds.Submit(mt))
+		checkNil(t, ds.Submit(mt))
 	}
 	runCtx := &sync.Map{}
-	assert.Nil(t, ds.Run(context.Background(), runCtx))
-	assert.Greater(t, int64(400), time.Now().UnixMilli()-start)
+	checkNil(t, ds.Run(context.Background(), runCtx))
+	checkGreater(t, int64(400), time.Now().UnixMilli()-start)
 	for _, n := range nodes {
 		value, _ := runCtx.Load(n.name)
-		assert.Equal(t, n.name, value.(string))
+		checkEqual(t, n.name, value.(string))
 	}
 	dot := ds.Dot()
-	assert.Equal(t, `
+	checkEqual(t, `
 digraph G {
 "start"[shape=box,color="green"]
 "end"[shape=box,color="red"]
@@ -110,24 +129,24 @@ func TestExecuteDagWithPanic(t *testing.T) {
 	start := time.Now().UnixMilli()
 	ds := NewScheduler[*sync.Map]()
 	for _, mt := range nodes {
-		assert.Nil(t, ds.Submit(mt))
+		checkNil(t, ds.Submit(mt))
 	}
-	assert.Nil(t, ds.SubmitFunc("T3", func(ctx context.Context, s *sync.Map) error {
+	checkNil(t, ds.SubmitFunc("T3", func(ctx context.Context, s *sync.Map) error {
 		panic("expect panic in task T3")
 	}, "T2", "T4"))
 	runCtx := &sync.Map{}
 	err := ds.Run(context.Background(), runCtx)
-	assert.NotNil(t, err)
-	assert.Greater(t, int64(300), time.Now().UnixMilli()-start)
+	checkNotNil(t, err)
+	checkGreater(t, int64(300), time.Now().UnixMilli()-start)
 	expectRunTask, expectNotRunTask := []string{"T1", "T2", "T4"}, []string{"T3", "T5", "T6"}
 	for _, name := range expectRunTask {
 		value, ok := runCtx.Load(name)
-		assert.True(t, ok)
-		assert.Equal(t, name, value.(string))
+		checkEqual(t, true, ok)
+		checkEqual(t, name, value.(string))
 	}
 	for _, name := range expectNotRunTask {
 		_, ok := runCtx.Load(name)
-		assert.False(t, ok)
+		checkEqual(t, false, ok)
 	}
 }
 
@@ -157,24 +176,24 @@ func TestExecuteDagWithError(t *testing.T) {
 	start := time.Now().UnixMilli()
 	ds := NewScheduler[*sync.Map]()
 	for _, mt := range nodes {
-		assert.Nil(t, ds.Submit(mt))
+		checkNil(t, ds.Submit(mt))
 	}
-	assert.Nil(t, ds.SubmitFunc("T3", func(ctx context.Context, _ *sync.Map) error {
+	checkNil(t, ds.SubmitFunc("T3", func(ctx context.Context, _ *sync.Map) error {
 		return errors.New("expect err in T3")
 	}, "T2", "T4"))
 	runCtx := &sync.Map{}
 	err := ds.Run(context.Background(), runCtx)
-	assert.EqualError(t, err, "expect err in T3")
-	assert.Greater(t, int64(300), time.Now().UnixMilli()-start)
+	checkEqual(t, err.Error(), "expect err in T3")
+	checkGreater(t, int64(300), time.Now().UnixMilli()-start)
 	expectRunTask, expectNotRunTask := []string{"T1", "T2", "T4"}, []string{"T3", "T5", "T6"}
 	for _, name := range expectRunTask {
 		value, ok := runCtx.Load(name)
-		assert.True(t, ok)
-		assert.Equal(t, name, value.(string))
+		checkEqual(t, true, ok)
+		checkEqual(t, name, value.(string))
 	}
 	for _, name := range expectNotRunTask {
 		_, ok := runCtx.Load(name)
-		assert.False(t, ok)
+		checkEqual(t, false, ok)
 	}
 }
 
@@ -210,21 +229,21 @@ func TestExecuteDagWithTimeout(t *testing.T) {
 	start := time.Now().UnixMilli()
 	ds := NewScheduler[*sync.Map]()
 	for _, mt := range nodes {
-		assert.Nil(t, ds.Submit(mt))
+		checkNil(t, ds.Submit(mt))
 	}
 	runCtx := &sync.Map{}
 	err := ds.Run(context.Background(), runCtx)
-	assert.EqualError(t, err, "task:T3 run timeout")
-	assert.Greater(t, int64(300), time.Now().UnixMilli()-start)
+	checkEqual(t, err.Error(), "task:T3 run timeout")
+	checkGreater(t, int64(300), time.Now().UnixMilli()-start)
 	expectRunTask, expectNotRunTask := []string{"T1", "T2", "T4"}, []string{"T3", "T5", "T6"}
 	for _, name := range expectRunTask {
 		value, ok := runCtx.Load(name)
-		assert.True(t, ok)
-		assert.Equal(t, name, value.(string))
+		checkEqual(t, true, ok)
+		checkEqual(t, name, value.(string))
 	}
 	for _, name := range expectNotRunTask {
 		_, ok := runCtx.Load(name)
-		assert.False(t, ok)
+		checkEqual(t, false, ok)
 	}
 }
 
@@ -254,7 +273,7 @@ func TestSchedulerInjector(t *testing.T) {
 	start := time.Now().UnixMilli()
 	ds := NewScheduler[*sync.Map]()
 	for _, mt := range nodes {
-		assert.Nil(t, ds.Submit(mt))
+		checkNil(t, ds.Submit(mt))
 	}
 	ds = ds.WithInjectorFactory(InjectorFactoryFunc[*sync.Map](func(ctx context.Context, task Task[*sync.Map]) Injector[*sync.Map] {
 		return Injector[*sync.Map]{
@@ -272,10 +291,10 @@ func TestSchedulerInjector(t *testing.T) {
 		}
 	}))
 	runCtx := &sync.Map{}
-	assert.Nil(t, ds.Run(context.Background(), runCtx))
-	assert.Greater(t, int64(400), time.Now().UnixMilli()-start) // program expect running 3 seconds
+	checkNil(t, ds.Run(context.Background(), runCtx))
+	checkGreater(t, int64(400), time.Now().UnixMilli()-start) // program expect running 3 seconds
 	for _, n := range nodes {
 		value, _ := runCtx.Load(n.name)
-		assert.Equal(t, "modified by injector "+n.name, value.(string))
+		checkEqual(t, "modified by injector "+n.name, value.(string))
 	}
 }

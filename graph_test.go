@@ -3,8 +3,6 @@ package dagRun
 import (
 	"fmt"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
 )
 
 type StringNode struct {
@@ -94,7 +92,10 @@ func TestCircle(t *testing.T) {
 		fmt.Println(node.String())
 		return nil
 	})
-	assert.EqualError(t, err, "graph has circle, cur node:E ,next node:A")
+	want := "graph has circle, cur node:E ,next node:A"
+	if err.Error() != want {
+		t.Errorf("want err:%s but get:%v", want, err)
+	}
 }
 
 func ExampleGraph_BFS() {
