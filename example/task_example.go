@@ -59,11 +59,13 @@ type RunCtx struct {
 
 const sleepTime = time.Millisecond * 100
 
-type TaskA struct{}
+type NoOptionTask struct{}
 
-func (t TaskA) Options() []dagRun.TaskOption {
+func (n NoOptionTask) Options() []dagRun.TaskOption {
 	return nil
 }
+
+type TaskA struct{ NoOptionTask }
 
 func (t TaskA) Name() string {
 	return "TaskA"
@@ -79,7 +81,7 @@ func (t TaskA) Execute(ctx context.Context, runCtx *RunCtx) error {
 	return nil
 }
 
-type TaskB struct{}
+type TaskB struct{ NoOptionTask }
 
 func (t TaskB) Name() string {
 	return "TaskB"
@@ -95,11 +97,7 @@ func (t TaskB) Execute(ctx context.Context, runCtx *RunCtx) error {
 	return nil
 }
 
-func (t TaskB) Options() []dagRun.TaskOption {
-	return nil
-}
-
-type TaskC struct{}
+type TaskC struct{ NoOptionTask }
 
 func (t TaskC) Name() string {
 	return "TaskC"
@@ -115,11 +113,7 @@ func (t TaskC) Execute(ctx context.Context, runCtx *RunCtx) error {
 	return nil
 }
 
-func (t TaskC) Options() []dagRun.TaskOption {
-	return nil
-}
-
-type TaskD struct{}
+type TaskD struct{ NoOptionTask }
 
 func (t TaskD) Name() string {
 	return "TaskD"
@@ -132,9 +126,5 @@ func (t TaskD) Dependencies() []string {
 func (t TaskD) Execute(ctx context.Context, runCtx *RunCtx) error {
 	time.Sleep(sleepTime)
 	runCtx.TaskDOutput = "TaskDOutput"
-	return nil
-}
-
-func (t TaskD) Options() []dagRun.TaskOption {
 	return nil
 }
