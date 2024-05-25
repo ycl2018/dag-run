@@ -11,7 +11,6 @@ import (
 type Scheduler[T any] struct {
 	dag         *Graph
 	nodes       map[string]*node[T]
-	tasks       []*node[T]
 	swg         sync.WaitGroup
 	lock        sync.Mutex
 	err         error
@@ -60,10 +59,8 @@ func (n *node[T]) start(ctx context.Context, t T) {
 		var execute = func() {
 			var o option
 			ops := n.task.Options()
-			if ops != nil {
-				for _, op := range ops {
-					op(&o)
-				}
+			for _, op := range ops {
+				op(&o)
 			}
 			err = n.executeTask(ctx, n.task, t, o)
 		}
@@ -160,7 +157,6 @@ func (d *Scheduler[T]) Submit(tasks ...Task[T]) error {
 			return d.err
 		}
 		n := &node[T]{task: task, ds: d}
-		d.tasks = append(d.tasks, n)
 		d.dag.AddNode(n)
 		d.nodes[task.Name()] = n
 		d.swg.Add(1)
@@ -193,26 +189,22 @@ func (d *Scheduler[T]) Run(ctx context.Context, x T) error {
 		return d.err
 	}
 	d.sealed = true
-	for _, task := range d.tasks {
-		for _, name := range task.task.Dependencies() {
+	for _, n := range d.nodes {
+		for _, name := range n.task.Dependencies() {
 			pre, ok := d.nodes[name]
 			if !ok {
-				return fmt.Errorf("%w: task :%s's dependency:%s not found", ErrTaskNotExist, task, name)
+				return fmt.Errorf("%w: task :%s's dependency:%s not found", ErrTaskNotExist, n, name)
 			}
-			d.dag.AddEdge(pre, task)
-			pre.next = append(pre.next, task)
-			task.swg.Add(1)
+			d.dag.AddEdge(pre, n)
+			pre.next = append(pre.next, n)
+			n.swg.Add(1)
 		}
 	}
 	if err := d.dag.DFS(NopeWalker); err != nil {
 		return err
 	}
-	// start work
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	for _, task := range d.tasks {
-		task.start(ctx, x)
+	for _, n := range d.nodes {
+		n.start(ctx, x)
 	}
 	d.swg.Wait()
 	return d.err
