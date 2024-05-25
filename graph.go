@@ -4,20 +4,17 @@ import (
 	"bytes"
 	"fmt"
 	"strings"
-	"sync"
 )
 
 type Graph struct {
 	Nodes []Node
 	Edges map[Node][]Node
-	mutex sync.Mutex
 }
 
 func NewGraph() *Graph {
 	return &Graph{
 		Nodes: make([]Node, 0),
 		Edges: make(map[Node][]Node),
-		mutex: sync.Mutex{},
 	}
 }
 
@@ -26,20 +23,14 @@ type Node interface {
 }
 
 func (g *Graph) AddNode(n Node) {
-	g.mutex.Lock()
-	defer g.mutex.Unlock()
 	g.Nodes = append(g.Nodes, n)
 }
 
 func (g *Graph) AddEdge(from Node, to Node) {
-	g.mutex.Lock()
-	defer g.mutex.Unlock()
 	g.Edges[from] = append(g.Edges[from], to)
 }
 
 func (g *Graph) String() string {
-	g.mutex.Lock()
-	defer g.mutex.Unlock()
 	var sb strings.Builder
 	for i := 0; i < len(g.Nodes); i++ {
 		sb.WriteString(fmt.Sprintf("[%v]-> [", g.Nodes[i]))
@@ -86,8 +77,6 @@ type Walker func(node Node) error
 func NopeWalker(_ Node) error { return nil }
 
 func (g *Graph) DFS(walker Walker) error {
-	g.mutex.Lock()
-	defer g.mutex.Unlock()
 	visited := make(map[Node]int, len(g.Nodes))
 	for _, node := range g.Nodes {
 		if err := g.dfs(node, visited, walker); err != nil {
@@ -124,8 +113,6 @@ func (g *Graph) dfs(node Node, visited map[Node]int, walker Walker) error {
 }
 
 func (g *Graph) BFS(walker Walker) error {
-	g.mutex.Lock()
-	defer g.mutex.Unlock()
 	visited := make(map[Node]struct{}, len(g.Nodes))
 	for _, node := range g.Nodes {
 		if err := g.bfs(node, visited, walker); err != nil {
