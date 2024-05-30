@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"runtime/debug"
 	"sync"
+	"time"
 )
 
 // Scheduler simple scheduler for typed tasks
@@ -96,8 +97,6 @@ func (n *node[T]) executeTask(ctx context.Context, task Task[T], t T, op option)
 		}
 	}
 	if op.timeout > 0 {
-		ctx, cancel := context.WithTimeout(ctx, op.timeout)
-		defer cancel()
 		var done = make(chan struct{})
 		go func() {
 			defer func() {
@@ -108,16 +107,11 @@ func (n *node[T]) executeTask(ctx context.Context, task Task[T], t T, op option)
 			}()
 			runWithRetry()
 		}()
-	BLOCK:
-		for {
-			select {
-			case <-ctx.Done():
-				// timeout
-				err = fmt.Errorf("task:%s run timeout", task.Name())
-				break BLOCK
-			case <-done:
-				break BLOCK
-			}
+		select {
+		case <-time.After(op.timeout):
+			// timeout
+			err = fmt.Errorf("task:%s run timeout", task.Name())
+		case <-done:
 		}
 	} else {
 		runWithRetry()
