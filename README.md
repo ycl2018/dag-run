@@ -41,17 +41,18 @@ var a = func() error {return nil}
 var b = func() error {return nil}
 var c = func() error {return nil}
 var d = func() error {return nil}
+```
 
-// 支持使用 SubmitWithOps 来设置任务的重试次数和超时时间
+支持使用 SubmitWithOps 来设置任务的重试次数和超时时间
+```go
 SubmitWithOps("A", a, []TaskOption{Retry(3),Timeout(3*time.Second)})
 ```
 ## Example2：对象任务
 
-
-
-实际业务场景下，任务的执行通常会在一个确定的执行环境中，如提供任务入参、任务配置、收集任务结果等。你可以通过实现Task接口来定义你的任务，其中的泛型参数T即为任务环境参数。
+实际业务场景下，任务的执行通常会在一个确定的执行上下文中，如提供任务入参、任务配置、收集任务结果等。你可以通过实现Task接口来定义你的任务，其中的泛型参数T即为任务环境参数类型。
 
 ```Go
+//  任务对象接口
 type Task[T any] interface {
 	Name() string
 	Dependencies() []string
@@ -60,7 +61,7 @@ type Task[T any] interface {
 }
 ```
 
-本例展示任务在执行环境参数sync.Map下的使用场景。
+本例展示任务在执行环境上下文 **sync.Map** 下的使用场景。
 
 ![example1](images/example2.png)
 
@@ -81,6 +82,7 @@ func (tc taskC) Name() string {return "C"}
 func (tc taskC) Dependencies() []string {return []string{"A"}}
 func (tc taskC) Execute(ctx context.Context, runCtx *sync.Map) error {return nil}
 
+// 空配置任务
 type NoOptionTask struct{}
 func (n NoOptionTask) Options() []dagRun.TaskOption {return nil}
 
