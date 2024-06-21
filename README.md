@@ -57,7 +57,6 @@ type Task[T any] interface {
 	Name() string
 	Dependencies() []string
 	Execute(context.Context, T) error
-	Options() []TaskOption
 }
 ```
 
@@ -67,24 +66,20 @@ type Task[T any] interface {
 
 ```Go
 
-type taskA struct{NoOptionTask}
+type taskA struct{}
 func (ta taskA) Name() string {return "A"}
 func (ta taskA) Dependencies() []string {return nil}
 func (ta taskA) Execute(ctx context.Context, runCtx *sync.Map) error {return nil}
 
-type taskB struct{NoOptionTask}
+type taskB struct{}
 func (tb taskB) Name() string {return "B"}
 func (tb taskB) Dependencies() []string {return []string{"A"}}
 func (tb taskB) Execute(ctx context.Context, runCtx *sync.Map) error {return nil}
 
-type taskC struct{NoOptionTask}
+type taskC struct{}
 func (tc taskC) Name() string {return "C"}
 func (tc taskC) Dependencies() []string {return []string{"A"}}
 func (tc taskC) Execute(ctx context.Context, runCtx *sync.Map) error {return nil}
-
-// 空配置任务
-type NoOptionTask struct{}
-func (n NoOptionTask) Options() []dagRun.TaskOption {return nil}
 
 ds := NewScheduler[*sync.Map]()
 ds.Submit(taskA{})
