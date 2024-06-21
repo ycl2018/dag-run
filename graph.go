@@ -3,6 +3,7 @@ package dagRun
 import (
 	"bytes"
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -113,40 +114,51 @@ func (g *Graph) dfs(node Node, visited map[Node]int, walker Walker) error {
 }
 
 func (g *Graph) BFS(walker Walker) error {
-	visited := make(map[Node]struct{}, len(g.Nodes))
-	for _, node := range g.Nodes {
-		if err := g.bfs(node, visited, walker); err != nil {
-			return err
-		}
+	var visitedNodesNum int
+	inDegrees := make(map[Node]int, len(g.Nodes))
+	for _, n := range g.Nodes {
+		inDegrees[n] = 0
 	}
-	return nil
-}
 
-func (g *Graph) bfs(node Node, visited map[Node]struct{}, walker Walker) error {
-	if g == nil || len(g.Nodes) == 0 {
-		return nil
-	}
-	if _, ok := visited[node]; ok {
-		return nil
-	}
-	var queue []Node
-	var head = 0
-	queue = append(queue, node)
-	visited[node] = struct{}{}
-	for len(queue) > head {
-		n := queue[head]
-		head++
-		nears := g.Edges[n]
-		for i := 0; i < len(nears); i++ {
-			if _, ok := visited[nears[i]]; ok {
-				continue
-			}
-			queue = append(queue, nears[i])
-			visited[nears[i]] = struct{}{}
+	for _, to := range g.Edges {
+		for _, n := range to {
+			inDegrees[n]++
 		}
-		if err := walker(n); err != nil {
+	}
+	var zeroDegreeNodes []Node
+	for _, v := range g.Nodes {
+		if inDegrees[v] == 0 {
+			zeroDegreeNodes = append(zeroDegreeNodes, v)
+		}
+	}
+
+	for len(zeroDegreeNodes) > 0 {
+		curNode := zeroDegreeNodes[0]
+		zeroDegreeNodes = zeroDegreeNodes[1:]
+		if err := walker(curNode); err != nil {
 			return err
 		}
+		visitedNodesNum++
+		for _, to := range g.Edges[curNode] {
+			inDegrees[to]--
+			if inDegrees[to] == 0 {
+				zeroDegreeNodes = append(zeroDegreeNodes, to)
+			}
+		}
 	}
+	// check circle
+	if visitedNodesNum < len(g.Nodes) {
+		var circleNodes []Node
+		for n, inDegree := range inDegrees {
+			if inDegree != 0 {
+				circleNodes = append(circleNodes, n)
+			}
+		}
+		sort.Slice(circleNodes, func(i, j int) bool {
+			return circleNodes[i].String() < circleNodes[j].String()
+		})
+		return fmt.Errorf("graph has circle in nodes:%v", circleNodes)
+	}
+
 	return nil
 }

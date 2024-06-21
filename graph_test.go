@@ -85,7 +85,20 @@ func ExampleGraph_DFS() {
 	//B
 }
 
-func TestCircle(t *testing.T) {
+func TestCircleBFS(t *testing.T) {
+	graph := g()
+	graph.AddEdge(nodes[4], nodes[0])
+	err := graph.BFS(func(node Node) error {
+		fmt.Println(node.String())
+		return nil
+	})
+	want := "graph has circle in nodes:[A C D E]"
+	if err.Error() != want {
+		t.Errorf("want err:%s but get:%v", want, err)
+	}
+}
+
+func TestCircleDFS(t *testing.T) {
 	graph := g()
 	graph.AddEdge(nodes[4], nodes[0])
 	err := graph.DFS(func(node Node) error {
@@ -105,9 +118,9 @@ func ExampleGraph_BFS() {
 		return nil
 	})
 	// OUTPUT:
+	//B
 	//A
 	//C
 	//D
 	//E
-	//B
 }
