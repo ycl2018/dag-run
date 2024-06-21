@@ -24,6 +24,11 @@ type Task[T any] interface {
 	Name() string
 	Dependencies() []string
 	Execute(context.Context, T) error
+}
+
+// OptTask extends Task with options
+type OptTask[T any] interface {
+	Task[T]
 	Options() []TaskOption
 }
 
@@ -59,9 +64,12 @@ func (n *node[T]) start(ctx context.Context, t T) {
 		}
 		var execute = func() {
 			var o option
-			ops := n.task.Options()
-			for _, op := range ops {
-				op(&o)
+			opT, ok := n.task.(interface{ Options() []TaskOption })
+			if ok {
+				ops := opT.Options()
+				for _, op := range ops {
+					op(&o)
+				}
 			}
 			err = n.executeTask(ctx, n.task, t, o)
 		}
