@@ -298,3 +298,70 @@ func TestSchedulerInjector(t *testing.T) {
 		checkEqual(t, "modified by injector "+n.name, value.(string))
 	}
 }
+
+func TestExecuteDagConditionTask(t *testing.T) {
+	var nodes = []task{
+		{
+			name:         "T1",
+			dependencies: nil,
+		},
+		{
+			name:         "T2",
+			dependencies: []string{"T1"},
+		},
+		{
+			name:         "T4",
+			dependencies: []string{"T3"},
+		},
+		{
+			name:         "T5",
+			dependencies: []string{"T2"},
+		},
+		{
+			name:         "T6",
+			dependencies: []string{"T4", "T5"},
+		},
+	}
+	ds := NewScheduler[*sync.Map]()
+	for _, mt := range nodes {
+		checkNil(t, ds.Submit(mt))
+	}
+
+	checkNil(t, ds.Submit(conditionTask{name: "T3", deps: []string{"T2"}, execute: false, breakNext: false}))
+	runCtx := &sync.Map{}
+	err := ds.Run(context.Background(), runCtx)
+	checkNil(t, err)
+	expectRunTask, expectNotRunTask := []string{"T1", "T2", "T4", "T5", "T6"}, []string{"T3"}
+	for _, name := range expectRunTask {
+		value, ok := runCtx.Load(name)
+		checkEqual(t, true, ok)
+		checkEqual(t, name, value.(string))
+	}
+	for _, name := range expectNotRunTask {
+		_, ok := runCtx.Load(name)
+		checkEqual(t, false, ok)
+	}
+}
+
+type conditionTask struct {
+	name               string
+	deps               []string
+	execute, breakNext bool
+}
+
+func (c conditionTask) Name() string {
+	return c.name
+}
+
+func (c conditionTask) Dependencies() []string {
+	return c.deps
+}
+
+func (c conditionTask) Execute(ctx context.Context, t *sync.Map) error {
+	t.Store(c.name, c.name)
+	return nil
+}
+
+func (c conditionTask) OnCondition(ctx context.Context, t *sync.Map) (execute bool, breakNext bool) {
+	return c.execute, c.breakNext
+}

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"runtime/debug"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -32,14 +33,23 @@ type OptTask[T any] interface {
 	Options() []TaskOption
 }
 
+// ConditionTask execute by condition is true
+type ConditionTask[T any] interface {
+	Task[T]
+	OnCondition(context.Context, T) (execute bool, breakNext bool)
+}
+
 type node[T any] struct {
 	ds   *Scheduler[T]
 	next []*node[T]
 	swg  sync.WaitGroup
 	task Task[T]
+	// initial value is inDegree, but zero inDegree set to 1 to ensure node
+	// can execute once, cancelled if value <= 0
+	cancelled atomic.Int64
 }
 
-func (n *node[T]) String() string {
+func (n *node[T]) Name() string {
 	return n.task.Name()
 }
 
@@ -62,6 +72,24 @@ func (n *node[T]) start(ctx context.Context, t T) {
 		if n.ds.err != nil {
 			return
 		}
+		// condition Task
+		if n.cancelled.Load() == 0 {
+			// broadcast cancelled to next nodes
+			n.breakNext()
+			return
+		}
+		ct, ok := n.task.(interface {
+			OnCondition(context.Context, T) (execute bool, breakNext bool)
+		})
+		if ok {
+			if execute, breakNext := ct.OnCondition(ctx, t); !execute {
+				if breakNext {
+					n.breakNext()
+				}
+				return
+			}
+		}
+
 		var execute = func() {
 			var o option
 			opT, ok := n.task.(interface{ Options() []TaskOption })
@@ -89,6 +117,11 @@ func (n *node[T]) start(ctx context.Context, t T) {
 			execute()
 		}
 	}()
+}
+func (n *node[T]) breakNext() {
+	for _, n2 := range n.next {
+		n2.cancelled.Add(-1)
+	}
 }
 
 func (n *node[T]) executeTask(ctx context.Context, task Task[T], t T, op option) error {
@@ -195,16 +228,36 @@ func (d *Scheduler[T]) Run(ctx context.Context, x T) error {
 		for _, name := range n.task.Dependencies() {
 			pre, ok := d.nodes[name]
 			if !ok {
-				return fmt.Errorf("%w: task :%s's dependency:%s not found", ErrTaskNotExist, n, name)
+				return fmt.Errorf("%w: task :%s's dependency:%s not found", ErrTaskNotExist, n.Name(), name)
 			}
 			d.dag.AddEdge(pre, n)
 			pre.next = append(pre.next, n)
 			n.swg.Add(1)
 		}
 	}
-	if err := d.dag.DFS(NopeWalker); err != nil {
+	if err := d.dag.BFS(NopeWalker); err != nil {
 		return err
 	}
+	// init nodes inDegrees
+	inDegrees := make(map[string]int, len(d.nodes))
+	for _, n := range d.nodes {
+		inDegrees[n.Name()] = 0
+	}
+	for _, to := range d.dag.Edges {
+		for _, n := range to {
+			inDegrees[n.Name()]++
+		}
+	}
+
+	for _, n := range d.nodes {
+		if inDegrees[n.Name()] == 0 {
+			// 0 inDegree nodes set 1 to ensure node execute at least once
+			n.cancelled.Store(1)
+		} else {
+			n.cancelled.Store(int64(inDegrees[n.Name()]))
+		}
+	}
+
 	for _, n := range d.nodes {
 		n.start(ctx, x)
 	}

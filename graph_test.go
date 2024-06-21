@@ -9,7 +9,7 @@ type StringNode struct {
 	Data string
 }
 
-func (s *StringNode) String() string {
+func (s *StringNode) Name() string {
 	return s.Data
 }
 
@@ -71,7 +71,7 @@ func ExampleGraph_DFS() {
 	graph := g()
 	// graph.AddEdge(nodes[4], nodes[0])
 	err := graph.DFS(func(node Node) error {
-		fmt.Println(node.String())
+		fmt.Println(node.Name())
 		return nil
 	})
 	if err != nil {
@@ -89,12 +89,12 @@ func TestCircleBFS(t *testing.T) {
 	graph := g()
 	graph.AddEdge(nodes[4], nodes[0])
 	err := graph.BFS(func(node Node) error {
-		fmt.Println(node.String())
+		fmt.Println(node.Name())
 		return nil
 	})
 	want := "graph has circle in nodes:[A C D E]"
 	if err.Error() != want {
-		t.Errorf("want err:%s but get:%v", want, err)
+		t.Errorf("want err:%s but get:%+v", want, err)
 	}
 }
 
@@ -102,7 +102,7 @@ func TestCircleDFS(t *testing.T) {
 	graph := g()
 	graph.AddEdge(nodes[4], nodes[0])
 	err := graph.DFS(func(node Node) error {
-		fmt.Println(node.String())
+		fmt.Println(node.Name())
 		return nil
 	})
 	want := "graph has circle, cur node:E ,next node:A"
@@ -114,7 +114,7 @@ func TestCircleDFS(t *testing.T) {
 func ExampleGraph_BFS() {
 	graph := g()
 	_ = graph.BFS(func(node Node) error {
-		fmt.Println(node.String())
+		fmt.Println(node.Name())
 		return nil
 	})
 	// OUTPUT:
