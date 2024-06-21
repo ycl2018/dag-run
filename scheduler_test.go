@@ -299,7 +299,7 @@ func TestSchedulerInjector(t *testing.T) {
 	}
 }
 
-func TestExecuteDagConditionTask(t *testing.T) {
+func TestExecuteDagconditionBranch(t *testing.T) {
 	var nodes = []task{
 		{
 			name:         "T1",
@@ -327,13 +327,14 @@ func TestExecuteDagConditionTask(t *testing.T) {
 		checkNil(t, ds.Submit(mt))
 	}
 
-	checkNil(t, ds.Submit(conditionTask{name: "T3", deps: []string{"T2"}, execute: false, breakNext: false}))
+	checkNil(t, ds.Submit(conditionBranch{name: "T3", deps: []string{"T2"}, valid: false}))
 	runCtx := &sync.Map{}
 	err := ds.Run(context.Background(), runCtx)
 	checkNil(t, err)
-	expectRunTask, expectNotRunTask := []string{"T1", "T2", "T4", "T5", "T6"}, []string{"T3"}
+	expectRunTask, expectNotRunTask := []string{"T1", "T2", "T3", "T5", "T6"}, []string{"T4"}
 	for _, name := range expectRunTask {
 		value, ok := runCtx.Load(name)
+		t.Log("check " + name)
 		checkEqual(t, true, ok)
 		checkEqual(t, name, value.(string))
 	}
@@ -343,25 +344,25 @@ func TestExecuteDagConditionTask(t *testing.T) {
 	}
 }
 
-type conditionTask struct {
-	name               string
-	deps               []string
-	execute, breakNext bool
+type conditionBranch struct {
+	name  string
+	deps  []string
+	valid bool
 }
 
-func (c conditionTask) Name() string {
+func (c conditionBranch) Name() string {
 	return c.name
 }
 
-func (c conditionTask) Dependencies() []string {
+func (c conditionBranch) Dependencies() []string {
 	return c.deps
 }
 
-func (c conditionTask) Execute(ctx context.Context, t *sync.Map) error {
+func (c conditionBranch) Execute(ctx context.Context, t *sync.Map) error {
 	t.Store(c.name, c.name)
 	return nil
 }
 
-func (c conditionTask) OnCondition(ctx context.Context, t *sync.Map) (execute bool, breakNext bool) {
-	return c.execute, c.breakNext
+func (c conditionBranch) ValidBranch() (execute bool) {
+	return c.valid
 }

@@ -33,10 +33,10 @@ type OptTask[T any] interface {
 	Options() []TaskOption
 }
 
-// ConditionTask execute by condition is true
-type ConditionTask[T any] interface {
+// ConditionBranch start a branch which execute when ValidBranch() returns true
+type ConditionBranch[T any] interface {
 	Task[T]
-	OnCondition(context.Context, T) (execute bool, breakNext bool)
+	ValidBranch() (valid bool)
 }
 
 type node[T any] struct {
@@ -64,6 +64,11 @@ func (n *node[T]) start(ctx context.Context, t T) {
 			if err != nil {
 				n.ds.CancelWithErr(err)
 			}
+			if ct, ok := n.task.(interface{ ValidBranch() (valid bool) }); ok {
+				if valid := ct.ValidBranch(); !valid {
+					n.breakNext()
+				}
+			}
 			n.ds.swg.Done()
 			for _, n2 := range n.next {
 				n2.swg.Done()
@@ -77,17 +82,6 @@ func (n *node[T]) start(ctx context.Context, t T) {
 			// broadcast cancelled to next nodes
 			n.breakNext()
 			return
-		}
-		ct, ok := n.task.(interface {
-			OnCondition(context.Context, T) (execute bool, breakNext bool)
-		})
-		if ok {
-			if execute, breakNext := ct.OnCondition(ctx, t); !execute {
-				if breakNext {
-					n.breakNext()
-				}
-				return
-			}
 		}
 
 		var execute = func() {
