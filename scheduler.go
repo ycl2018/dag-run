@@ -215,7 +215,26 @@ func (d *Scheduler[T]) SubmitFuncWithOps(name string, f func(context.Context, T)
 		d.err = ErrNilFunc
 		return d.err
 	}
-	d.err = d.Submit(&defaultTaskImpl[T]{name: name, deps: deps, f: f, options: ops})
+	d.err = d.Submit(&funcTaskImpl[T]{name: name, deps: deps, f: f, options: ops})
+	return d.err
+}
+
+// SubmitBranchFunc submit a func branch task to scheduler
+func (d *Scheduler[T]) SubmitBranchFunc(name string, f func(context.Context, T) (bool, error), deps ...string) error {
+	return d.SubmitBranchFuncWithOps(name, f, nil, deps...)
+}
+
+// SubmitBranchFuncWithOps submit a func branch task to scheduler with options
+func (d *Scheduler[T]) SubmitBranchFuncWithOps(name string, f func(context.Context, T) (bool, error), ops []TaskOption, deps ...string) error {
+	if name == "" {
+		d.err = ErrNoTaskName
+		return d.err
+	}
+	if f == nil {
+		d.err = ErrNilFunc
+		return d.err
+	}
+	d.err = d.Submit(&branchFuncTaskImpl[T]{name: name, deps: deps, f: f, options: ops})
 	return d.err
 }
 

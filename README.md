@@ -4,11 +4,13 @@
 ``` go get github.com/ycl2018/dag-run ```
 ## Feature
 - <p>install `go get github.com/ycl2018/dag-run`</p>
-- <p>Generic implementation, support go1.18</p>
-- <p>Based on sync.WaitGroup, very simple and lightweight implementation</p>
-- <p>Support fail fast, if a task returns an error during operation, the rest of the unrunning tasks will be canceled</p>
-- <p>You can use TaskManager to easily register and get your Task tasks</p>
-- <p>support add injector</p>
+- <p>Generic implementation, no any</p>
+- <p>Lightweight: based on sync.WaitGroup</p>
+- <p>Fail Fast:if a task returns an error, the rest of the tasks will be canceled at time</p>
+- <p>TaskManager:easily register and get your tasks with their dependencies</p>
+- <p>Injector: do something before or after on each task</p>
+- <p>Branch Task: a branch task only execute when some condition true</p>
+- <p>Retry & Timeout: set options of max retry times and timeout duration</p>
 
 ## 中文说明
 
@@ -24,6 +26,8 @@
 - <p>可以使用TaskManager来方便的注册和获取你的Task任务</p>
 - <p>支持提交函数任务/结构体任务</p>
 - <p>支持注入injector，在每个任务执行前后插入通用的业务逻辑，如打点、监控等</p>
+- <p>分支任务：只在符合某种条件下才执行的分支任务</p>
+- <p>重试和超时： 支持配置节点的重试次数和超时时间</p>
 
 ## Example1：函数任务
  ![example1](images/example1.png)
@@ -65,27 +69,47 @@ type Task[T any] interface {
 ![example1](images/example2.png)
 
 ```Go
-
+// define taskA type
 type taskA struct{}
 func (ta taskA) Name() string {return "A"}
 func (ta taskA) Dependencies() []string {return nil}
 func (ta taskA) Execute(ctx context.Context, runCtx *sync.Map) error {return nil}
 
-type taskB struct{}
-func (tb taskB) Name() string {return "B"}
-func (tb taskB) Dependencies() []string {return []string{"A"}}
-func (tb taskB) Execute(ctx context.Context, runCtx *sync.Map) error {return nil}
-
-type taskC struct{}
-func (tc taskC) Name() string {return "C"}
-func (tc taskC) Dependencies() []string {return []string{"A"}}
-func (tc taskC) Execute(ctx context.Context, runCtx *sync.Map) error {return nil}
+// taskB, taskC ....as the same
 
 ds := NewScheduler[*sync.Map]()
 ds.Submit(taskA{})
 ds.Submit(taskB{})
 ds.Submit(taskC{})
 err := ds.Run(context.Background(), &sync.Map{})
+```
+
+## 条件分支
+支持定义一个分支任务，跟在这个分支后的任务只会在符合分支条件下执行
+
+![example_branch](images/branch.png)
+
+```go
+	scd := NewFuncScheduler()
+	runCtx := sync.Map{}
+	err := scd.
+		Submit("T1", func() error { runCtx.Store("T1", "T1"); return nil }).
+		Submit("T2", func() error { runCtx.Store("T2", "T2"); return nil }, "B1").
+		Submit("T3", func() error { runCtx.Store("T3", "T3"); return nil }, "B2").
+		Submit("T4", func() error { runCtx.Store("T4", "T4"); return nil }, "T2", "T3").
+		SubmitBranch("B1", func() (bool, error) { return true, nil }, "T1").
+		SubmitBranch("B2", func() (bool, error) { return false, nil }, "T1").
+		Run()
+	if err != nil {
+		t.Errorf("scd run err:%v", err)
+	}
+	expectValues := []string{"T1", "T2", "T4"}
+	for _, v := range expectValues {
+		value, _ := runCtx.Load(v)
+		if v != value.(string) {
+			t.Errorf("expected:%s but get:%s", v, value)
+		}
+	}
 ```
 
 ## 拦截器
