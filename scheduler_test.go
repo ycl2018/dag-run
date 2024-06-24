@@ -3,6 +3,7 @@ package dagRun
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"sync"
 	"testing"
@@ -49,8 +50,10 @@ func (t task) Dependencies() []string {
 }
 
 func (t task) Execute(_ context.Context, runCtx *sync.Map) error {
+	fmt.Printf("task:%s start at:%v\n", t.Name(), time.Now())
 	time.Sleep(100 * time.Millisecond)
 	runCtx.Store(t.Name(), t.Name())
+	fmt.Printf("task:%s end at:%v\n", t.Name(), time.Now())
 	return nil
 }
 
@@ -233,7 +236,7 @@ func TestExecuteDagWithTimeout(t *testing.T) {
 	}
 	runCtx := &sync.Map{}
 	err := ds.Run(context.Background(), runCtx)
-	checkEqual(t, err.Error(), "task:T3 run timeout")
+	checkEqual(t, err.Error(), "dag: task:T3 run timeout")
 	checkGreater(t, int64(300), time.Now().UnixMilli()-start)
 	expectRunTask, expectNotRunTask := []string{"T1", "T2", "T4"}, []string{"T3", "T5", "T6"}
 	for _, name := range expectRunTask {
@@ -296,5 +299,111 @@ func TestSchedulerInjector(t *testing.T) {
 	for _, n := range nodes {
 		value, _ := runCtx.Load(n.name)
 		checkEqual(t, "modified by injector "+n.name, value.(string))
+	}
+}
+
+func TestExecuteDagconditionBranch(t *testing.T) {
+	var nodes = []task{
+		{
+			name:         "T1",
+			dependencies: nil,
+		},
+		{
+			name:         "T2",
+			dependencies: []string{"T1"},
+		},
+		{
+			name:         "T4",
+			dependencies: []string{"T3"},
+		},
+		{
+			name:         "T5",
+			dependencies: []string{"T2"},
+		},
+		{
+			name:         "T6",
+			dependencies: []string{"T4", "T5"},
+		},
+	}
+	ds := NewScheduler[*sync.Map]()
+	for _, mt := range nodes {
+		checkNil(t, ds.Submit(mt))
+	}
+
+	checkNil(t, ds.Submit(conditionBranch{name: "T3", deps: []string{"T2"}, valid: false}))
+	runCtx := &sync.Map{}
+	err := ds.Run(context.Background(), runCtx)
+	checkNil(t, err)
+	expectRunTask, expectNotRunTask := []string{"T1", "T2", "T3", "T5", "T6"}, []string{"T4"}
+	for _, name := range expectRunTask {
+		value, ok := runCtx.Load(name)
+		t.Log("check " + name)
+		checkEqual(t, true, ok)
+		checkEqual(t, name, value.(string))
+	}
+	for _, name := range expectNotRunTask {
+		_, ok := runCtx.Load(name)
+		checkEqual(t, false, ok)
+	}
+}
+
+type conditionBranch struct {
+	name  string
+	deps  []string
+	valid bool
+}
+
+func (c conditionBranch) Name() string {
+	return c.name
+}
+
+func (c conditionBranch) Dependencies() []string {
+	return c.deps
+}
+
+func (c conditionBranch) Execute(ctx context.Context, t *sync.Map) error {
+	t.Store(c.name, c.name)
+	return nil
+}
+
+func (c conditionBranch) ValidBranch() (execute bool) {
+	return c.valid
+}
+
+func TestAsyncRun(t *testing.T) {
+	var nodes = []task{
+		{
+			name:         "T1",
+			dependencies: nil,
+		},
+		{
+			name:         "T2",
+			dependencies: []string{"T1"},
+		},
+		{
+			name:         "T3",
+			dependencies: []string{"T1"},
+		},
+		{
+			name:         "T4",
+			dependencies: []string{"T2", "T3"},
+		},
+		{
+			name:         "T5",
+			dependencies: []string{},
+		},
+	}
+	start := time.Now().UnixMilli()
+	ds := NewScheduler[*sync.Map]()
+	for _, mt := range nodes {
+		checkNil(t, ds.Submit(mt))
+	}
+	runCtx := &sync.Map{}
+	ds.RunAsync(context.Background(), runCtx)
+	checkNil(t, ds.Wait())
+	checkGreater(t, int64(400), time.Now().UnixMilli()-start)
+	for _, n := range nodes {
+		value, _ := runCtx.Load(n.name)
+		checkEqual(t, n.name, value.(string))
 	}
 }

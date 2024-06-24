@@ -20,7 +20,7 @@ func NewGraph() *Graph {
 }
 
 type Node interface {
-	fmt.Stringer
+	Name() string
 }
 
 func (g *Graph) AddNode(n Node) {
@@ -34,10 +34,10 @@ func (g *Graph) AddEdge(from Node, to Node) {
 func (g *Graph) String() string {
 	var sb strings.Builder
 	for i := 0; i < len(g.Nodes); i++ {
-		sb.WriteString(fmt.Sprintf("[%v]-> [", g.Nodes[i]))
+		sb.WriteString(fmt.Sprintf("[%s]-> [", g.Nodes[i].Name()))
 		nearNodes := g.Edges[g.Nodes[i]]
 		for j := 0; j < len(nearNodes); j++ {
-			sb.WriteString(fmt.Sprintf("%s,", nearNodes[j]))
+			sb.WriteString(fmt.Sprintf("%s,", nearNodes[j].Name()))
 		}
 		sb.WriteString("]\n")
 	}
@@ -58,7 +58,7 @@ func (g *Graph) DOT() string {
 			}
 		}
 	}
-	//0 indegrees
+	//0 inDegrees
 	for _, n := range g.Nodes {
 		if inDegree[n] == 0 {
 			dc.ToStart = append(dc.ToStart, n)
@@ -100,7 +100,7 @@ func (g *Graph) dfs(node Node, visited map[Node]int, walker Walker) error {
 	visited[node] = 1
 	for _, v := range g.Edges[node] {
 		if visited[v] == 1 {
-			return fmt.Errorf("graph has circle, cur node:%s ,next node:%s", node, v)
+			return fmt.Errorf("graph has circle, cur node:%s ,next node:%s", node.Name(), v.Name())
 		} else if visited[v] == -1 {
 			continue
 		} else {
@@ -148,14 +148,14 @@ func (g *Graph) BFS(walker Walker) error {
 	}
 	// check circle
 	if visitedNodesNum < len(g.Nodes) {
-		var circleNodes []Node
+		var circleNodes []string
 		for n, inDegree := range inDegrees {
 			if inDegree != 0 {
-				circleNodes = append(circleNodes, n)
+				circleNodes = append(circleNodes, n.Name())
 			}
 		}
 		sort.Slice(circleNodes, func(i, j int) bool {
-			return circleNodes[i].String() < circleNodes[j].String()
+			return circleNodes[i] < circleNodes[j]
 		})
 		return fmt.Errorf("graph has circle in nodes:%v", circleNodes)
 	}

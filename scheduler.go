@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"runtime/debug"
+	"sort"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -12,11 +14,12 @@ import (
 type Scheduler[T any] struct {
 	dag         *Graph
 	nodes       map[string]*node[T]
-	swg         sync.WaitGroup
+	swg         *sync.WaitGroup
 	lock        sync.Mutex
 	err         error
 	injectorFac InjectorFactory[T]
 	sealed      bool
+	done        chan error
 }
 
 // Task is the interface all your tasks should implement
@@ -26,45 +29,71 @@ type Task[T any] interface {
 	Execute(context.Context, T) error
 }
 
-// OptTask extends Task with options
-type OptTask[T any] interface {
-	Task[T]
+// Optioned means Task with options
+type Optioned interface {
 	Options() []TaskOption
 }
 
-type node[T any] struct {
-	ds   *Scheduler[T]
-	next []*node[T]
-	swg  sync.WaitGroup
-	task Task[T]
+// Conditioned means task is a branch Task
+type Conditioned interface {
+	ValidBranch() (valid bool)
 }
 
-func (n *node[T]) String() string {
+// OptTask extends Task with options, not really used here, only for benefit of implements
+type OptTask[T any] interface {
+	Task[T]
+	Optioned
+}
+
+// ConditionBranch start a branch which execute when ValidBranch() returns true
+// not really used here, only for benefit of implements
+type ConditionBranch[T any] interface {
+	Task[T]
+	Conditioned
+}
+
+type node[T any] struct {
+	ds       *Scheduler[T]
+	next     []*node[T]
+	task     Task[T]
+	preBreak atomic.Int64
+}
+
+func (n *node[T]) Name() string {
 	return n.task.Name()
 }
 
 func (n *node[T]) start(ctx context.Context, t T) {
 	go func() {
-		n.swg.Wait()
 		var err error
+		var breakNext bool
 		defer func() {
 			if pErr := recover(); pErr != nil {
-				n.ds.CancelWithErr(fmt.Errorf("panic:%v \n%s", pErr, debug.Stack()))
+				n.ds.CancelWithErr(fmt.Errorf("dag: panic:%v \n%s", pErr, debug.Stack()))
 			}
 			if err != nil {
 				n.ds.CancelWithErr(err)
 			}
-			n.ds.swg.Done()
-			for _, n2 := range n.next {
-				n2.swg.Done()
+			if breakNext {
+				n.breakNext()
+			} else {
+				// when task is a branch node
+				if ct, ok := n.task.(Conditioned); ok {
+					if valid := ct.ValidBranch(); !valid {
+						n.breakNext()
+					}
+				}
 			}
+			n.ds.swg.Done()
 		}()
-		if n.ds.err != nil {
+		//  break next nodes on this branch
+		if n.preBreak.Load() == 0 {
+			breakNext = true
 			return
 		}
 		var execute = func() {
 			var o option
-			opT, ok := n.task.(interface{ Options() []TaskOption })
+			opT, ok := n.task.(Optioned)
 			if ok {
 				ops := opT.Options()
 				for _, op := range ops {
@@ -109,7 +138,7 @@ func (n *node[T]) executeTask(ctx context.Context, task Task[T], t T, op option)
 		go func() {
 			defer func() {
 				if r := recover(); r != nil {
-					err = fmt.Errorf("task:%s panic:%v", task.Name(), r)
+					err = fmt.Errorf("dag: task:%s panic:%v", task.Name(), r)
 				}
 				done <- struct{}{}
 			}()
@@ -118,13 +147,19 @@ func (n *node[T]) executeTask(ctx context.Context, task Task[T], t T, op option)
 		select {
 		case <-time.After(op.timeout):
 			// timeout
-			err = fmt.Errorf("task:%s run timeout", task.Name())
+			err = fmt.Errorf("dag: task:%s run timeout", task.Name())
 		case <-done:
 		}
 	} else {
 		runWithRetry()
 	}
 	return err
+}
+
+func (n *node[T]) breakNext() {
+	for _, n2 := range n.next {
+		n2.preBreak.Add(-1)
+	}
 }
 
 // NewScheduler build a typed task scheduler
@@ -161,7 +196,6 @@ func (d *Scheduler[T]) Submit(tasks ...Task[T]) error {
 		n := &node[T]{task: task, ds: d}
 		d.dag.AddNode(n)
 		d.nodes[task.Name()] = n
-		d.swg.Add(1)
 	}
 	return nil
 }
@@ -181,7 +215,26 @@ func (d *Scheduler[T]) SubmitFuncWithOps(name string, f func(context.Context, T)
 		d.err = ErrNilFunc
 		return d.err
 	}
-	d.err = d.Submit(&defaultTaskImpl[T]{name: name, deps: deps, f: f, options: ops})
+	d.err = d.Submit(&funcTaskImpl[T]{name: name, deps: deps, f: f, options: ops})
+	return d.err
+}
+
+// SubmitBranchFunc submit a func branch task to scheduler
+func (d *Scheduler[T]) SubmitBranchFunc(name string, f func(context.Context, T) (bool, error), deps ...string) error {
+	return d.SubmitBranchFuncWithOps(name, f, nil, deps...)
+}
+
+// SubmitBranchFuncWithOps submit a func branch task to scheduler with options
+func (d *Scheduler[T]) SubmitBranchFuncWithOps(name string, f func(context.Context, T) (bool, error), ops []TaskOption, deps ...string) error {
+	if name == "" {
+		d.err = ErrNoTaskName
+		return d.err
+	}
+	if f == nil {
+		d.err = ErrNilFunc
+		return d.err
+	}
+	d.err = d.Submit(&branchFuncTaskImpl[T]{name: name, deps: deps, f: f, options: ops})
 	return d.err
 }
 
@@ -195,21 +248,89 @@ func (d *Scheduler[T]) Run(ctx context.Context, x T) error {
 		for _, name := range n.task.Dependencies() {
 			pre, ok := d.nodes[name]
 			if !ok {
-				return fmt.Errorf("%w: task :%s's dependency:%s not found", ErrTaskNotExist, n, name)
+				return fmt.Errorf("dag:%w: task :%s's dependency:%s not found", ErrTaskNotExist, n.Name(), name)
 			}
 			d.dag.AddEdge(pre, n)
 			pre.next = append(pre.next, n)
-			n.swg.Add(1)
 		}
 	}
-	if err := d.dag.DFS(NopeWalker); err != nil {
-		return err
-	}
+	var visitedNodesNum int
+	// init nodes inDegrees
+	inDegrees := make(map[string]int, len(d.nodes))
 	for _, n := range d.nodes {
-		n.start(ctx, x)
+		inDegrees[n.Name()] = 0
 	}
-	d.swg.Wait()
-	return d.err
+	for _, to := range d.dag.Edges {
+		for _, n := range to {
+			inDegrees[n.Name()]++
+		}
+	}
+	var toStartNodes []*node[T]
+	for name, inDegree := range inDegrees {
+		curN := d.nodes[name]
+		if inDegree == 0 {
+			toStartNodes = append(toStartNodes, curN)
+			// set dummy head for start nodes to ensure start nodes execute once
+			curN.preBreak.Store(int64(1))
+		} else {
+			curN.preBreak.Store(int64(inDegree))
+		}
+	}
+	for len(toStartNodes) > 0 {
+		d.swg = new(sync.WaitGroup)
+		d.swg.Add(len(toStartNodes))
+		for _, n := range toStartNodes {
+			n.start(ctx, x)
+			visitedNodesNum++
+		}
+		d.swg.Wait()
+		if d.err != nil {
+			return d.err
+		}
+		pre := toStartNodes
+		toStartNodes = []*node[T]{}
+		for _, startNode := range pre {
+			for _, n := range startNode.next {
+				inDegrees[n.Name()]--
+				if inDegrees[n.Name()] == 0 {
+					toStartNodes = append(toStartNodes, n)
+				}
+			}
+		}
+	}
+	// check circle
+	if visitedNodesNum < len(d.dag.Nodes) {
+		var circleNodes []string
+		for n, inDegree := range inDegrees {
+			if inDegree != 0 {
+				circleNodes = append(circleNodes, n)
+			}
+		}
+		sort.Slice(circleNodes, func(i, j int) bool {
+			return circleNodes[i] < circleNodes[j]
+		})
+		return fmt.Errorf("dag:graph has circle in nodes:%v", circleNodes)
+	}
+
+	return nil
+}
+
+// RunAsync start all tasks not block
+func (d *Scheduler[T]) RunAsync(ctx context.Context, x T) {
+	d.done = make(chan error)
+	go func() {
+		err := d.Run(ctx, x)
+		d.done <- err
+	}()
+	return
+}
+
+// Wait all tasks finish, goroutine will block here if not
+func (d *Scheduler[T]) Wait() error {
+	if d.done == nil {
+		return ErrNotAsyncJob
+	}
+	return <-d.done
 }
 
 // CancelWithErr cancel the tasks which has not been stated in the scheduler
