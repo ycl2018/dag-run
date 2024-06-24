@@ -95,13 +95,15 @@ func TestNewScheduler(t *testing.T) {
 	dot := ds.Dot()
 	checkEqual(t, `
 digraph G {
+
 "start"[shape=box,color="green"]
 "end"[shape=box,color="red"]
+
 "T1" -> {"T2","T3"}
 "T2" -> {"T4"}
 "T3" -> {"T4"}
 "start" -> {"T1","T5"}
-{"T4","T5"}  -> "end"
+{"T4","T5"} -> "end"
 }
 `, dot)
 }
