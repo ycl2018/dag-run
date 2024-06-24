@@ -28,16 +28,27 @@ type Task[T any] interface {
 	Execute(context.Context, T) error
 }
 
-// OptTask extends Task with options
-type OptTask[T any] interface {
-	Task[T]
+// Optioned means Task with options
+type Optioned interface {
 	Options() []TaskOption
 }
 
+// Conditioned means task is a branch Task
+type Conditioned interface {
+	ValidBranch() (valid bool)
+}
+
+// OptTask extends Task with options, not really used here, only for benefit of implements
+type OptTask[T any] interface {
+	Task[T]
+	Optioned
+}
+
 // ConditionBranch start a branch which execute when ValidBranch() returns true
+// not really used here, only for benefit of implements
 type ConditionBranch[T any] interface {
 	Task[T]
-	ValidBranch() (valid bool)
+	Conditioned
 }
 
 type node[T any] struct {
@@ -66,7 +77,7 @@ func (n *node[T]) start(ctx context.Context, t T) {
 				n.breakNext()
 			} else {
 				// when task is a branch node
-				if ct, ok := n.task.(interface{ ValidBranch() (valid bool) }); ok {
+				if ct, ok := n.task.(Conditioned); ok {
 					if valid := ct.ValidBranch(); !valid {
 						n.breakNext()
 					}
@@ -81,7 +92,7 @@ func (n *node[T]) start(ctx context.Context, t T) {
 		}
 		var execute = func() {
 			var o option
-			opT, ok := n.task.(interface{ Options() []TaskOption })
+			opT, ok := n.task.(Optioned)
 			if ok {
 				ops := opT.Options()
 				for _, op := range ops {
