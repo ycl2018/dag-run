@@ -369,3 +369,41 @@ func (c conditionBranch) Execute(ctx context.Context, t *sync.Map) error {
 func (c conditionBranch) ValidBranch() (execute bool) {
 	return c.valid
 }
+
+func TestAsyncRun(t *testing.T) {
+	var nodes = []task{
+		{
+			name:         "T1",
+			dependencies: nil,
+		},
+		{
+			name:         "T2",
+			dependencies: []string{"T1"},
+		},
+		{
+			name:         "T3",
+			dependencies: []string{"T1"},
+		},
+		{
+			name:         "T4",
+			dependencies: []string{"T2", "T3"},
+		},
+		{
+			name:         "T5",
+			dependencies: []string{},
+		},
+	}
+	start := time.Now().UnixMilli()
+	ds := NewScheduler[*sync.Map]()
+	for _, mt := range nodes {
+		checkNil(t, ds.Submit(mt))
+	}
+	runCtx := &sync.Map{}
+	ds.RunAsync(context.Background(), runCtx)
+	checkNil(t, ds.Wait())
+	checkGreater(t, int64(400), time.Now().UnixMilli()-start)
+	for _, n := range nodes {
+		value, _ := runCtx.Load(n.name)
+		checkEqual(t, n.name, value.(string))
+	}
+}

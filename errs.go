@@ -9,4 +9,5 @@ var (
 	ErrNilFunc      = errors.New("dagRun: nil func")
 	ErrTaskNotExist = errors.New("dagRun: task not found")
 	ErrSealed       = errors.New("dagRun: dag is sealed")
+	ErrNotAsyncJob  = errors.New("dagRun: not async job")
 )

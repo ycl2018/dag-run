@@ -19,6 +19,7 @@ type Scheduler[T any] struct {
 	err         error
 	injectorFac InjectorFactory[T]
 	sealed      bool
+	done        chan error
 }
 
 // Task is the interface all your tasks should implement
@@ -293,6 +294,24 @@ func (d *Scheduler[T]) Run(ctx context.Context, x T) error {
 	}
 
 	return nil
+}
+
+// RunAsync start all tasks not block
+func (d *Scheduler[T]) RunAsync(ctx context.Context, x T) {
+	d.done = make(chan error)
+	go func() {
+		err := d.Run(ctx, x)
+		d.done <- err
+	}()
+	return
+}
+
+// Wait all tasks finish, goroutine will block here if not
+func (d *Scheduler[T]) Wait() error {
+	if d.done == nil {
+		return ErrNotAsyncJob
+	}
+	return <-d.done
 }
 
 // CancelWithErr cancel the tasks which has not been stated in the scheduler
