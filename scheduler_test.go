@@ -236,7 +236,7 @@ func TestExecuteDagWithTimeout(t *testing.T) {
 	}
 	runCtx := &sync.Map{}
 	err := ds.Run(context.Background(), runCtx)
-	checkEqual(t, err.Error(), "task:T3 run timeout")
+	checkEqual(t, err.Error(), "dag: task:T3 run timeout")
 	checkGreater(t, int64(300), time.Now().UnixMilli()-start)
 	expectRunTask, expectNotRunTask := []string{"T1", "T2", "T4"}, []string{"T3", "T5", "T6"}
 	for _, name := range expectRunTask {

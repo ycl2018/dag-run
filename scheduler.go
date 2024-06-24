@@ -57,7 +57,7 @@ func (n *node[T]) start(ctx context.Context, t T) {
 		var breakNext bool
 		defer func() {
 			if pErr := recover(); pErr != nil {
-				n.ds.CancelWithErr(fmt.Errorf("panic:%v \n%s", pErr, debug.Stack()))
+				n.ds.CancelWithErr(fmt.Errorf("dag: panic:%v \n%s", pErr, debug.Stack()))
 			}
 			if err != nil {
 				n.ds.CancelWithErr(err)
@@ -126,7 +126,7 @@ func (n *node[T]) executeTask(ctx context.Context, task Task[T], t T, op option)
 		go func() {
 			defer func() {
 				if r := recover(); r != nil {
-					err = fmt.Errorf("task:%s panic:%v", task.Name(), r)
+					err = fmt.Errorf("dag: task:%s panic:%v", task.Name(), r)
 				}
 				done <- struct{}{}
 			}()
@@ -135,7 +135,7 @@ func (n *node[T]) executeTask(ctx context.Context, task Task[T], t T, op option)
 		select {
 		case <-time.After(op.timeout):
 			// timeout
-			err = fmt.Errorf("task:%s run timeout", task.Name())
+			err = fmt.Errorf("dag: task:%s run timeout", task.Name())
 		case <-done:
 		}
 	} else {
@@ -217,7 +217,7 @@ func (d *Scheduler[T]) Run(ctx context.Context, x T) error {
 		for _, name := range n.task.Dependencies() {
 			pre, ok := d.nodes[name]
 			if !ok {
-				return fmt.Errorf("%w: task :%s's dependency:%s not found", ErrTaskNotExist, n.Name(), name)
+				return fmt.Errorf("dag:%w: task :%s's dependency:%s not found", ErrTaskNotExist, n.Name(), name)
 			}
 			d.dag.AddEdge(pre, n)
 			pre.next = append(pre.next, n)
