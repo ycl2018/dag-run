@@ -3,6 +3,7 @@ package dagRun
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"sync"
 	"testing"
@@ -49,8 +50,10 @@ func (t task) Dependencies() []string {
 }
 
 func (t task) Execute(_ context.Context, runCtx *sync.Map) error {
+	fmt.Printf("task:%s start at:%v\n", t.Name(), time.Now())
 	time.Sleep(100 * time.Millisecond)
 	runCtx.Store(t.Name(), t.Name())
+	fmt.Printf("task:%s end at:%v\n", t.Name(), time.Now())
 	return nil
 }
 

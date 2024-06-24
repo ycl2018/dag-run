@@ -3,7 +3,6 @@ package dagRun
 import (
 	"sync"
 	"testing"
-	"time"
 )
 
 func TestFuncScheduler(t *testing.T) {
@@ -11,17 +10,14 @@ func TestFuncScheduler(t *testing.T) {
 	runCtx := sync.Map{}
 	scd.Submit("T1", func() error {
 		runCtx.Store("T1", "T1")
-		time.Sleep(1 * time.Second)
 		return nil
 	})
 	scd.Submit("T2", func() error {
 		runCtx.Store("T2", "T2")
-		time.Sleep(1 * time.Second)
 		return nil
 	}, "T1")
 	scd.Submit("T3", func() error {
 		runCtx.Store("T3", "T3")
-		time.Sleep(1 * time.Second)
 		return nil
 	}, "T2")
 	err := scd.Run()

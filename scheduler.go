@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"runtime/debug"
+	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -13,7 +14,7 @@ import (
 type Scheduler[T any] struct {
 	dag         *Graph
 	nodes       map[string]*node[T]
-	swg         sync.WaitGroup
+	swg         *sync.WaitGroup
 	lock        sync.Mutex
 	err         error
 	injectorFac InjectorFactory[T]
@@ -40,13 +41,10 @@ type ConditionBranch[T any] interface {
 }
 
 type node[T any] struct {
-	ds   *Scheduler[T]
-	next []*node[T]
-	swg  sync.WaitGroup
-	task Task[T]
-	// initial value is inDegree, but zero inDegree set to 1 to ensure node
-	// can execute once, cancelled if value <= 0
-	cancelled atomic.Int64
+	ds       *Scheduler[T]
+	next     []*node[T]
+	task     Task[T]
+	preBreak atomic.Int64
 }
 
 func (n *node[T]) Name() string {
@@ -55,8 +53,8 @@ func (n *node[T]) Name() string {
 
 func (n *node[T]) start(ctx context.Context, t T) {
 	go func() {
-		n.swg.Wait()
 		var err error
+		var breakNext bool
 		defer func() {
 			if pErr := recover(); pErr != nil {
 				n.ds.CancelWithErr(fmt.Errorf("panic:%v \n%s", pErr, debug.Stack()))
@@ -64,26 +62,23 @@ func (n *node[T]) start(ctx context.Context, t T) {
 			if err != nil {
 				n.ds.CancelWithErr(err)
 			}
-			if ct, ok := n.task.(interface{ ValidBranch() (valid bool) }); ok {
-				if valid := ct.ValidBranch(); !valid {
-					n.breakNext()
+			if breakNext {
+				n.breakNext()
+			} else {
+				// when task is a branch node
+				if ct, ok := n.task.(interface{ ValidBranch() (valid bool) }); ok {
+					if valid := ct.ValidBranch(); !valid {
+						n.breakNext()
+					}
 				}
 			}
 			n.ds.swg.Done()
-			for _, n2 := range n.next {
-				n2.swg.Done()
-			}
 		}()
-		if n.ds.err != nil {
+		//  break next nodes on this branch
+		if n.preBreak.Load() == 0 {
+			breakNext = true
 			return
 		}
-		// condition Task
-		if n.cancelled.Load() == 0 {
-			// broadcast cancelled to next nodes
-			n.breakNext()
-			return
-		}
-
 		var execute = func() {
 			var o option
 			opT, ok := n.task.(interface{ Options() []TaskOption })
@@ -111,11 +106,6 @@ func (n *node[T]) start(ctx context.Context, t T) {
 			execute()
 		}
 	}()
-}
-func (n *node[T]) breakNext() {
-	for _, n2 := range n.next {
-		n2.cancelled.Add(-1)
-	}
 }
 
 func (n *node[T]) executeTask(ctx context.Context, task Task[T], t T, op option) error {
@@ -154,6 +144,12 @@ func (n *node[T]) executeTask(ctx context.Context, task Task[T], t T, op option)
 	return err
 }
 
+func (n *node[T]) breakNext() {
+	for _, n2 := range n.next {
+		n2.preBreak.Add(-1)
+	}
+}
+
 // NewScheduler build a typed task scheduler
 func NewScheduler[T any]() *Scheduler[T] {
 	return &Scheduler[T]{dag: NewGraph(), nodes: make(map[string]*node[T], 0)}
@@ -188,7 +184,6 @@ func (d *Scheduler[T]) Submit(tasks ...Task[T]) error {
 		n := &node[T]{task: task, ds: d}
 		d.dag.AddNode(n)
 		d.nodes[task.Name()] = n
-		d.swg.Add(1)
 	}
 	return nil
 }
@@ -226,12 +221,9 @@ func (d *Scheduler[T]) Run(ctx context.Context, x T) error {
 			}
 			d.dag.AddEdge(pre, n)
 			pre.next = append(pre.next, n)
-			n.swg.Add(1)
 		}
 	}
-	if err := d.dag.BFS(NopeWalker); err != nil {
-		return err
-	}
+	var visitedNodesNum int
 	// init nodes inDegrees
 	inDegrees := make(map[string]int, len(d.nodes))
 	for _, n := range d.nodes {
@@ -242,21 +234,54 @@ func (d *Scheduler[T]) Run(ctx context.Context, x T) error {
 			inDegrees[n.Name()]++
 		}
 	}
-
-	for _, n := range d.nodes {
-		if inDegrees[n.Name()] == 0 {
-			// 0 inDegree nodes set 1 to ensure node execute at least once
-			n.cancelled.Store(1)
+	var toStartNodes []*node[T]
+	for name, inDegree := range inDegrees {
+		curN := d.nodes[name]
+		if inDegree == 0 {
+			toStartNodes = append(toStartNodes, curN)
+			// set dummy head for start nodes to ensure start nodes execute once
+			curN.preBreak.Store(int64(1))
 		} else {
-			n.cancelled.Store(int64(inDegrees[n.Name()]))
+			curN.preBreak.Store(int64(inDegree))
 		}
 	}
-
-	for _, n := range d.nodes {
-		n.start(ctx, x)
+	for len(toStartNodes) > 0 {
+		d.swg = new(sync.WaitGroup)
+		d.swg.Add(len(toStartNodes))
+		for _, n := range toStartNodes {
+			n.start(ctx, x)
+			visitedNodesNum++
+		}
+		d.swg.Wait()
+		if d.err != nil {
+			return d.err
+		}
+		pre := toStartNodes
+		toStartNodes = []*node[T]{}
+		for _, startNode := range pre {
+			for _, n := range startNode.next {
+				inDegrees[n.Name()]--
+				if inDegrees[n.Name()] == 0 {
+					toStartNodes = append(toStartNodes, n)
+				}
+			}
+		}
 	}
-	d.swg.Wait()
-	return d.err
+	// check circle
+	if visitedNodesNum < len(d.dag.Nodes) {
+		var circleNodes []string
+		for n, inDegree := range inDegrees {
+			if inDegree != 0 {
+				circleNodes = append(circleNodes, n)
+			}
+		}
+		sort.Slice(circleNodes, func(i, j int) bool {
+			return circleNodes[i] < circleNodes[j]
+		})
+		return fmt.Errorf("dag:graph has circle in nodes:%v", circleNodes)
+	}
+
+	return nil
 }
 
 // CancelWithErr cancel the tasks which has not been stated in the scheduler
