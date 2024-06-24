@@ -44,8 +44,31 @@ func (g *Graph) String() string {
 	return sb.String()
 }
 
-func (g *Graph) DOT() string {
+type DotOption func(dc *dotContext)
+
+func WithCommonGraphAttr(ga []string) DotOption {
+	return func(dc *dotContext) {
+		dc.GraphAttr = ga
+	}
+}
+
+func WithCommonNodeAttr(na []string) DotOption {
+	return func(dc *dotContext) {
+		dc.NodeCommonAttr = na
+	}
+}
+
+func WithCommonEdgeAttr(ea []string) DotOption {
+	return func(dc *dotContext) {
+		dc.EdgeCommonAttr = ea
+	}
+}
+
+func (g *Graph) DOT(ops ...DotOption) string {
 	var dc dotContext
+	for _, op := range ops {
+		op(&dc)
+	}
 	dc.Edges = g.Edges
 	var inDegree = map[Node]int{}
 	// 0 outDegrees

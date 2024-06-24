@@ -55,16 +55,17 @@ func ExampleGraph_DOT() {
 	fmt.Println(g().DOT())
 	// OUTPUT:
 	//digraph G {
+	//
 	//"start"[shape=box,color="green"]
 	//"end"[shape=box,color="red"]
+	//
 	//"A" -> {"C","D"}
 	//"B" -> {"A","E","D"}
 	//"C" -> {"D"}
 	//"D" -> {"E"}
 	//"start" -> {"B"}
-	//{"E"}  -> "end"
+	//{"E"} -> "end"
 	//}
-	//
 }
 
 func ExampleGraph_DFS() {
