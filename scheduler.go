@@ -3,6 +3,7 @@ package dagRun
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"runtime/debug"
 	"sort"
 	"sync"
@@ -346,6 +347,24 @@ func (d *Scheduler[T]) CancelWithErr(err error) {
 }
 
 // Dot dump dag in dot language
-func (d *Scheduler[T]) Dot() string {
-	return d.dag.DOT()
+func (d *Scheduler[T]) Dot(ops ...DotOption) string {
+	var branchNodesAttr []string
+	for _, n := range d.nodes {
+		if _, ok := n.task.(Conditioned); ok {
+			branchNodesAttr = append(branchNodesAttr, fmt.Sprintf("%s [shape=diamond]", n.task.Name()))
+		}
+	}
+	ops = append(ops, func(dc *dotContext) {
+		dc.NodeAttr = append(branchNodesAttr, dc.NodeAttr...)
+	})
+	return d.dag.DOT(ops...)
+}
+
+const graphvizOnlineURL = "https://dreampuf.github.io/GraphvizOnline/#"
+
+// DOTOnlineURL return a graphvizOnline url
+func (d *Scheduler[T]) DOTOnlineURL(ops ...DotOption) string {
+	dot := d.Dot(ops...)
+	escape := url.PathEscape(dot)
+	return graphvizOnlineURL + escape
 }
