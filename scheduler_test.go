@@ -347,6 +347,9 @@ func TestExecuteDagconditionBranch(t *testing.T) {
 		_, ok := runCtx.Load(name)
 		checkEqual(t, false, ok)
 	}
+	dot := ds.DOTOnlineURL(WithCommonGraphAttr([]string{"rankdir=LR"}),
+		WithCommonNodeAttr([]string{"shape=circle"}))
+	t.Log(dot)
 }
 
 type conditionBranch struct {

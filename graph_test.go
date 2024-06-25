@@ -60,7 +60,7 @@ func ExampleGraph_DOT() {
 	//"end"[shape=box,color="red"]
 	//
 	//"A" -> {"C","D"}
-	//"B" -> {"A","E","D"}
+	//"B" -> {"A","D","E"}
 	//"C" -> {"D"}
 	//"D" -> {"E"}
 	//"start" -> {"B"}

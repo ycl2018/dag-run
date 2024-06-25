@@ -64,12 +64,29 @@ func WithCommonEdgeAttr(ea []string) DotOption {
 	}
 }
 
+func WithNodeAttr(na []string) DotOption {
+	return func(dc *dotContext) {
+		dc.NodeAttr = na
+	}
+}
+
 func (g *Graph) DOT(ops ...DotOption) string {
 	var dc dotContext
 	for _, op := range ops {
 		op(&dc)
 	}
-	dc.Edges = g.Edges
+	dc.Edges = make([]EdgePairs, 0, len(g.Edges))
+	// make edges deterministic
+	for from, to := range g.Edges {
+		var cp = make([]Node, len(to))
+		copy(cp, to)
+		sort.Slice(cp, func(i, j int) bool { return cp[i].Name() < cp[j].Name() })
+		dc.Edges = append(dc.Edges, EdgePairs{
+			From: from,
+			To:   cp,
+		})
+	}
+	sort.Slice(dc.Edges, func(i, j int) bool { return dc.Edges[i].From.Name() < dc.Edges[j].From.Name() })
 	var inDegree = map[Node]int{}
 	// 0 outDegrees
 	for _, n := range g.Nodes {
@@ -87,7 +104,8 @@ func (g *Graph) DOT(ops ...DotOption) string {
 			dc.ToStart = append(dc.ToStart, n)
 		}
 	}
-
+	sort.Slice(dc.ToStart, func(i, j int) bool { return dc.ToStart[i].Name() < dc.ToStart[j].Name() })
+	sort.Slice(dc.ToEnd, func(i, j int) bool { return dc.ToEnd[i].Name() < dc.ToEnd[j].Name() })
 	buf := new(bytes.Buffer)
 	err := dotTemplate.Execute(buf, dc)
 	if err != nil {
