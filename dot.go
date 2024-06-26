@@ -16,8 +16,8 @@ node[
 {{- print $v -}}
 {{- end -}}]{{- end}}
 
-"start"[shape=box,color="green"]
-"end"[shape=box,color="red"]
+"start"[shape=doublecircle,color="green"]
+"end"[shape=doublecircle,color="red"]
 {{- if len .NodeAttr }}
 {{- range $i, $v := .NodeAttr }}
 {{print $v}}

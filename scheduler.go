@@ -351,7 +351,7 @@ func (d *Scheduler[T]) Dot(ops ...DotOption) string {
 	var branchNodesAttr []string
 	for _, n := range d.nodes {
 		if _, ok := n.task.(Conditioned); ok {
-			branchNodesAttr = append(branchNodesAttr, fmt.Sprintf("%s [shape=diamond]", n.task.Name()))
+			branchNodesAttr = append(branchNodesAttr, fmt.Sprintf(`%s [shape=diamond, color="blue"]`, n.task.Name()))
 		}
 	}
 	ops = append(ops, func(dc *dotContext) {
