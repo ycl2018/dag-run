@@ -96,8 +96,8 @@ func TestNewScheduler(t *testing.T) {
 	checkEqual(t, `
 digraph G {
 
-"start"[shape=box,color="green"]
-"end"[shape=box,color="red"]
+"start"[shape=doublecircle,color="green"]
+"end"[shape=doublecircle,color="red"]
 
 "T1" -> {"T2","T3"}
 "T2" -> {"T4"}

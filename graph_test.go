@@ -56,8 +56,8 @@ func ExampleGraph_DOT() {
 	// OUTPUT:
 	//digraph G {
 	//
-	//"start"[shape=box,color="green"]
-	//"end"[shape=box,color="red"]
+	//"start"[shape=doublecircle,color="green"]
+	//"end"[shape=doublecircle,color="red"]
 	//
 	//"A" -> {"C","D"}
 	//"B" -> {"A","D","E"}

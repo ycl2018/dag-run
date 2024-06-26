@@ -168,8 +168,8 @@ dotStr := dagRun.NewFuncScheduler().
 println(dotStr)
 
 // digraph G {
-// "start"[shape=box,color="green"]
-// "end"[shape=box,color="red"]
+// "start"[shape=doublecircle,color="green"]
+// "end"[shape=doublecircle,color="red"]
 // "A" -> {"B","C"}
 // "B" -> {"D"}
 // "C" -> {"D","E"}

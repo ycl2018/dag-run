@@ -66,8 +66,13 @@ func (d *FuncScheduler) Run() error {
 }
 
 // Dot dump dag in dot language
-func (d *FuncScheduler) Dot() string {
-	return d.scd.Dot()
+func (d *FuncScheduler) Dot(ops ...DotOption) string {
+	return d.scd.Dot(ops...)
+}
+
+// DOTOnlineURL return a graphvizOnline url
+func (d *FuncScheduler) DOTOnlineURL(ops ...DotOption) string {
+	return d.scd.DOTOnlineURL(ops...)
 }
 
 type funcTaskImpl[T any] struct {
