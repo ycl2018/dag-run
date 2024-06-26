@@ -348,16 +348,13 @@ func (d *Scheduler[T]) CancelWithErr(err error) {
 
 // Dot dump dag in dot language
 func (d *Scheduler[T]) Dot(ops ...DotOption) string {
-	var branchNodesAttr []string
+	var branchNodesOps []DotOption
 	for _, n := range d.nodes {
 		if _, ok := n.task.(Conditioned); ok {
-			branchNodesAttr = append(branchNodesAttr, fmt.Sprintf(`%s [shape=diamond, color="blue"]`, n.task.Name()))
+			branchNodesOps = append(branchNodesOps, WithNodeAttr(n.Name(), "shape=diamond", `color="blue"`))
 		}
 	}
-	ops = append(ops, func(dc *dotContext) {
-		dc.NodeAttr = append(branchNodesAttr, dc.NodeAttr...)
-	})
-	return d.dag.DOT(ops...)
+	return d.dag.DOT(append(branchNodesOps, ops...)...)
 }
 
 const graphvizOnlineURL = "https://dreampuf.github.io/GraphvizOnline/#"
