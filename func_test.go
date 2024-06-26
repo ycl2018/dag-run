@@ -56,6 +56,6 @@ func TestBranchFuncTask(t *testing.T) {
 			t.Errorf("expected:%s but get:%s", v, value)
 		}
 	}
-	dotStr := scd.DOTOnlineURL(WithCommonGraphAttr([]string{"rankdir=LR"}))
+	dotStr := scd.DOTOnlineURL(WithCommonGraphAttr("rankdir=LR"))
 	t.Log(dotStr)
 }

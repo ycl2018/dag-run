@@ -93,19 +93,18 @@ func TestNewScheduler(t *testing.T) {
 		checkEqual(t, n.name, value.(string))
 	}
 	dot := ds.Dot()
-	checkEqual(t, `
-digraph G {
+	checkEqual(t, `digraph G {
 
-"start"[shape=doublecircle,color="green"]
-"end"[shape=doublecircle,color="red"]
+"start" [color="green",shape=doublecircle]
+"end" [color="red",shape=doublecircle]
 
 "T1" -> {"T2","T3"}
 "T2" -> {"T4"}
 "T3" -> {"T4"}
+"T4" -> {"end"}
+"T5" -> {"end"}
 "start" -> {"T1","T5"}
-{"T4","T5"} -> "end"
-}
-`, dot)
+}`, dot)
 }
 
 func TestExecuteDagWithPanic(t *testing.T) {
@@ -347,8 +346,8 @@ func TestExecuteDagconditionBranch(t *testing.T) {
 		_, ok := runCtx.Load(name)
 		checkEqual(t, false, ok)
 	}
-	dot := ds.DOTOnlineURL(WithCommonGraphAttr([]string{"rankdir=LR"}),
-		WithCommonNodeAttr([]string{"shape=circle"}))
+	dot := ds.DOTOnlineURL(WithCommonGraphAttr("rankdir=LR"),
+		WithCommonNodeAttr("shape=circle"))
 	t.Log(dot)
 }
 

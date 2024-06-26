@@ -1,7 +1,6 @@
 package dagRun
 
 import (
-	"bytes"
 	"fmt"
 	"sort"
 	"strings"
@@ -46,52 +45,87 @@ func (g *Graph) String() string {
 
 type DotOption func(dc *dotContext)
 
-func WithCommonGraphAttr(ga []string) DotOption {
+func WithCommonGraphAttr(attrs ...string) DotOption {
 	return func(dc *dotContext) {
-		dc.GraphAttr = ga
+		if dc.GraphAttr == nil {
+			dc.GraphAttr = map[string]string{}
+		}
+		for _, v := range attrs {
+			ss := strings.Split(v, "=")
+			if len(ss) != 2 {
+				continue
+			}
+			dc.GraphAttr[ss[0]] = ss[1]
+		}
 	}
 }
 
-func WithCommonNodeAttr(na []string) DotOption {
+func WithCommonNodeAttr(attrs ...string) DotOption {
 	return func(dc *dotContext) {
-		dc.NodeCommonAttr = na
+		if dc.NodeCommonAttr == nil {
+			dc.NodeCommonAttr = map[string]string{}
+		}
+		for _, v := range attrs {
+			ss := strings.Split(v, "=")
+			if len(ss) != 2 {
+				continue
+			}
+			dc.NodeCommonAttr[ss[0]] = ss[1]
+		}
 	}
 }
 
-func WithCommonEdgeAttr(ea []string) DotOption {
+func WithCommonEdgeAttr(attrs ...string) DotOption {
 	return func(dc *dotContext) {
-		dc.EdgeCommonAttr = ea
+		if dc.EdgeCommonAttr == nil {
+			dc.EdgeCommonAttr = map[string]string{}
+		}
+		for _, v := range attrs {
+			ss := strings.Split(v, "=")
+			if len(ss) != 2 {
+				continue
+			}
+			dc.EdgeCommonAttr[ss[0]] = ss[1]
+		}
 	}
 }
 
-func WithNodeAttr(na []string) DotOption {
+func WithNodeAttr(nodeName string, attrs ...string) DotOption {
 	return func(dc *dotContext) {
-		dc.NodeAttr = na
+		if dc.NodeAttr == nil {
+			dc.NodeAttr = map[string]map[string]string{}
+		}
+		if dc.NodeAttr[nodeName] == nil {
+			dc.NodeAttr[nodeName] = map[string]string{}
+		}
+		for _, v2 := range attrs {
+			ss := strings.Split(v2, "=")
+			if len(ss) != 2 {
+				continue
+			}
+			dc.NodeAttr[nodeName][ss[0]] = ss[1]
+		}
 	}
 }
 
 func (g *Graph) DOT(ops ...DotOption) string {
-	var dc dotContext
+	var dc = dotContext{}
+	ops = append(ops, WithNodeAttr(StartNodeName, `color="green"`, `shape=doublecircle`))
+	ops = append(ops, WithNodeAttr(EndNodeName, `color="red"`, `shape=doublecircle`))
 	for _, op := range ops {
 		op(&dc)
 	}
-	dc.Edges = make([]EdgePairs, 0, len(g.Edges))
-	// make edges deterministic
-	for from, to := range g.Edges {
-		var cp = make([]Node, len(to))
-		copy(cp, to)
-		sort.Slice(cp, func(i, j int) bool { return cp[i].Name() < cp[j].Name() })
-		dc.Edges = append(dc.Edges, EdgePairs{
-			From: from,
-			To:   cp,
-		})
+	var copedEdges = map[Node][]Node{}
+	for n, nodes := range g.Edges {
+		copedEdges[n] = nodes
 	}
-	sort.Slice(dc.Edges, func(i, j int) bool { return dc.Edges[i].From.Name() < dc.Edges[j].From.Name() })
+	dc.Edges = copedEdges
+	var toStart, toEnd []Node
 	var inDegree = map[Node]int{}
 	// 0 outDegrees
 	for _, n := range g.Nodes {
 		if to, ok := g.Edges[n]; !ok {
-			dc.ToEnd = append(dc.ToEnd, n)
+			toEnd = append(toEnd, n)
 		} else {
 			for _, toN := range to {
 				inDegree[toN]++
@@ -101,17 +135,20 @@ func (g *Graph) DOT(ops ...DotOption) string {
 	//0 inDegrees
 	for _, n := range g.Nodes {
 		if inDegree[n] == 0 {
-			dc.ToStart = append(dc.ToStart, n)
+			toStart = append(toStart, n)
 		}
 	}
-	sort.Slice(dc.ToStart, func(i, j int) bool { return dc.ToStart[i].Name() < dc.ToStart[j].Name() })
-	sort.Slice(dc.ToEnd, func(i, j int) bool { return dc.ToEnd[i].Name() < dc.ToEnd[j].Name() })
-	buf := new(bytes.Buffer)
-	err := dotTemplate.Execute(buf, dc)
-	if err != nil {
-		panic(err)
+	var dummyHead, dummyEnd = dummyNode(StartNodeName), dummyNode(EndNodeName)
+	for _, n := range toStart {
+		copedEdges[dummyHead] = append(copedEdges[dummyHead], n)
 	}
-	return buf.String()
+	for _, n := range toEnd {
+		copedEdges[n] = append(copedEdges[n], dummyEnd)
+	}
+	dc.Nodes = make([]Node, 0, len(g.Nodes))
+	copy(dc.Nodes, g.Nodes)
+	dc.Nodes = append(dc.Nodes, dummyEnd, dummyHead)
+	return genDot(&dc)
 }
 
 type Walker func(node Node) error
