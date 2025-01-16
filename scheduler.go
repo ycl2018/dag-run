@@ -145,8 +145,10 @@ func (n *node[T]) executeTask(ctx context.Context, task Task[T], t T, op option)
 			}()
 			runWithRetry()
 		}()
+		timer := time.NewTimer(op.timeout)
+		defer timer.Stop()
 		select {
-		case <-time.After(op.timeout):
+		case <-timer.C:
 			// timeout
 			err = fmt.Errorf("dag: task:%s run timeout", task.Name())
 		case <-done:
