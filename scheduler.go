@@ -2,6 +2,7 @@ package dagRun
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"runtime/debug"
@@ -320,7 +321,7 @@ func (d *Scheduler[T]) Run(ctx context.Context, x T) error {
 
 // RunAsync start all tasks not block
 func (d *Scheduler[T]) RunAsync(ctx context.Context, x T) {
-	d.done = make(chan error)
+	d.done = make(chan error, 1)
 	go func() {
 		err := d.Run(ctx, x)
 		d.done <- err
@@ -336,15 +337,25 @@ func (d *Scheduler[T]) Wait() error {
 	return <-d.done
 }
 
+// WaitTimeout wait duration to timeout for all tasks to finish, goroutine will block here if not
+func (d *Scheduler[T]) WaitTimeout(duration time.Duration) error {
+	if duration <= 0 {
+		return d.Wait()
+	}
+	timer := time.NewTimer(duration)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+		return ErrTimeout
+	case err := <-d.done:
+		return err
+	}
+}
+
 // CancelWithErr cancel the tasks which has not been stated in the scheduler
 func (d *Scheduler[T]) CancelWithErr(err error) {
 	d.lock.Lock()
-	if d.err == nil {
-		d.err = err
-	} else {
-		// group errors
-		d.err = fmt.Errorf("%s,<%s>", d.err, err.Error())
-	}
+	d.err = errors.Join(d.err, err)
 	d.lock.Unlock()
 }
 

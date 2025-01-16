@@ -10,4 +10,5 @@ var (
 	ErrTaskNotExist = errors.New("dagRun: task not found")
 	ErrSealed       = errors.New("dagRun: dag is sealed")
 	ErrNotAsyncJob  = errors.New("dagRun: not async job")
+	ErrTimeout      = errors.New("dagRun: wait timeout")
 )
