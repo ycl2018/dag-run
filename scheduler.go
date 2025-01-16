@@ -135,7 +135,7 @@ func (n *node[T]) executeTask(ctx context.Context, task Task[T], t T, op option)
 		}
 	}
 	if op.timeout > 0 {
-		var done = make(chan struct{})
+		var done = make(chan struct{}, 1)
 		go func() {
 			defer func() {
 				if r := recover(); r != nil {
