@@ -123,6 +123,6 @@ func (b *branchFuncTaskImpl[T]) Execute(ctx context.Context, t T) error {
 	return nil
 }
 
-func (b *branchFuncTaskImpl[T]) ValidBranch() (valid bool) {
+func (b *branchFuncTaskImpl[T]) ValidBranch(context.Context) (valid bool) {
 	return b.validBranch
 }

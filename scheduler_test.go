@@ -370,7 +370,7 @@ func (c conditionBranch) Execute(ctx context.Context, t *sync.Map) error {
 	return nil
 }
 
-func (c conditionBranch) ValidBranch() (execute bool) {
+func (c conditionBranch) ValidBranch(ctx context.Context, t *sync.Map) (valid bool) {
 	return c.valid
 }
 

@@ -37,8 +37,8 @@ type Optioned interface {
 }
 
 // Conditioned means task is a branch Task
-type Conditioned interface {
-	ValidBranch() (valid bool)
+type Conditioned[T any] interface {
+	ValidBranch(ctx context.Context, t T) (valid bool)
 }
 
 // OptTask extends Task with options, not really used here, only for benefit of implements
@@ -51,7 +51,7 @@ type OptTask[T any] interface {
 // not really used here, only for benefit of implements
 type ConditionBranch[T any] interface {
 	Task[T]
-	Conditioned
+	Conditioned[T]
 }
 
 type node[T any] struct {
@@ -80,8 +80,8 @@ func (n *node[T]) start(ctx context.Context, t T) {
 				n.breakNext()
 			} else {
 				// when task is a branch node
-				if ct, ok := n.task.(Conditioned); ok {
-					if valid := ct.ValidBranch(); !valid {
+				if ct, ok := n.task.(Conditioned[T]); ok {
+					if valid := ct.ValidBranch(ctx, t); !valid {
 						n.breakNext()
 					}
 				}
@@ -363,7 +363,7 @@ func (d *Scheduler[T]) CancelWithErr(err error) {
 func (d *Scheduler[T]) Dot(ops ...DotOption) string {
 	var branchNodesOps []DotOption
 	for _, n := range d.nodes {
-		if _, ok := n.task.(Conditioned); ok {
+		if _, ok := n.task.(Conditioned[T]); ok {
 			branchNodesOps = append(branchNodesOps, WithNodeAttr(n.Name(), "shape=diamond", `color="blue"`))
 		}
 	}
